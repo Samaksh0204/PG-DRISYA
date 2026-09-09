@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-white text-ink-900 antialiased font-sans;
+  }
+  html.dark body {
+    @apply bg-ink-950 text-ink-100;
+  }
+  ::selection {
+    @apply bg-coral-500/20 text-coral-700;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-coral-500 text-white px-5 py-2.5 text-sm hover:bg-coral-600 active:scale-[0.98] shadow-sm;
+  }
+  .btn-secondary {
+    @apply btn bg-ink-100 text-ink-900 px-5 py-2.5 text-sm hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-100 dark:hover:bg-ink-700;
+  }
+  .btn-ghost {
+    @apply btn text-ink-700 px-4 py-2.5 text-sm hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800;
+  }
+  .btn-outline {
+    @apply btn border border-ink-200 text-ink-900 px-5 py-2.5 text-sm hover:border-ink-400 dark:border-ink-700 dark:text-ink-100 dark:hover:border-ink-500;
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-card dark:bg-ink-900 dark:border dark:border-ink-800;
+  }
+  .input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-ink-400 transition focus:border-coral-500 focus:ring-2 focus:ring-coral-500/20 focus:outline-none dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium;
+  }
+  .skeleton {
+    @apply relative overflow-hidden bg-ink-100 dark:bg-ink-800 rounded-lg;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full;
+    content: '';
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
