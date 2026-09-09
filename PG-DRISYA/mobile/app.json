@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "PG Drisya",
+    "slug": "pg-drisya",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ff4d3d"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.drisya.pg"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ff4d3d"
+      },
+      "package": "com.drisya.pg"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow PG Drisya to access your photos to upload property images."
+        }
+      ]
+    ]
+  }
+}
