@@ -4,13 +4,14 @@ const User = require('../models/User');
 const Review = require('../models/Review');
 const Notification = require('../models/Notification');
 const { auth, requireRole, optionalAuth } = require('../middleware/auth');
-const { writeLimiter } = require('../middleware/rateLimiters');
+const { writeLimiter, searchLimiter, listingDetailLimiter } = require('../middleware/rateLimiters');
+const { publicProperty, ownerProperty } = require('../utils/serializers');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { escapeRegex, pick, isObjectId, isISODate, parsePagination } = require('../utils/validators');
 const { flags } = require('../config/env');
 const { ownerReviewStats } = require('../services/ratings');
-const { canSeeOwnerContact, canReviewProperty, hasStayed } = require('../services/relationships');
+const { canSeeOwnerContact, canReviewProperty, hasStayed, canSeeExactLocation } = require('../services/relationships');
 
 const router = express.Router();
 
@@ -68,6 +69,7 @@ async function fanOutNewListing(property) {
 // GET /api/properties — public search with filters, sort, pagination
 router.get(
   '/',
+  searchLimiter,
   asyncHandler(async (req, res) => {
     const { city, locality, search, gender, minPrice, maxPrice, amenities, occupancy, sort, featured, verified } = req.query;
     const filter = { status: 'active' };
@@ -107,12 +109,14 @@ router.get(
       }[sort];
     }
 
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 100 });
+    // Capped page size: nobody can pull the whole catalogue in one request.
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+    if (page > 100) throw new AppError('Please narrow your search', 400);
     const [properties, total] = await Promise.all([
       Property.find(filter).sort(sortObj).skip(skip).limit(limit),
       Property.countDocuments(filter),
     ]);
-    res.json({ properties, total, page, pages: Math.ceil(total / limit) });
+    res.json({ properties: properties.map((p) => publicProperty(p)), total, page, pages: Math.ceil(total / limit) });
   })
 );
 
@@ -123,7 +127,7 @@ router.get(
   requireRole('owner', 'admin'),
   asyncHandler(async (req, res) => {
     const properties = await Property.find({ ownerId: req.user._id, status: { $ne: 'deleted' } }).sort({ createdAt: -1 });
-    res.json({ properties });
+    res.json({ properties: properties.map(ownerProperty) });
   })
 );
 
@@ -143,6 +147,7 @@ router.get(
 // GET /api/properties/:id — detail with owner card, reviews, and viewer-specific info
 router.get(
   '/:id',
+  listingDetailLimiter,
   optionalAuth,
   asyncHandler(async (req, res) => {
     if (!isObjectId(req.params.id)) throw new AppError('Invalid property ID', 400);
@@ -184,8 +189,9 @@ router.get(
       };
     }
 
+    const exact = isOwner || isAdmin || (await canSeeExactLocation(viewer, property._id));
     res.json({
-      property,
+      property: isOwner || isAdmin ? ownerProperty(property) : publicProperty(property, { exact }),
       owner: ownerProfile,
       viewer: viewerInfo,
       reviews: reviews.map(serializeReview),
@@ -225,7 +231,7 @@ router.post(
       approvedAt: needsReview ? undefined : new Date(),
     });
     if (property.status === 'active') await fanOutNewListing(property);
-    res.status(201).json({ property });
+    res.status(201).json({ property: ownerProperty(property) });
   })
 );
 
@@ -247,7 +253,7 @@ router.put(
       updates.moderationNote = '';
     }
     const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
-    res.json({ property: updated });
+    res.json({ property: ownerProperty(updated) });
   })
 );
 
@@ -268,7 +274,7 @@ router.patch(
     if (property.status === 'rejected') throw new AppError('Edit and resubmit this listing first', 400);
     property.status = status;
     await property.save();
-    res.json({ property });
+    res.json({ property: ownerProperty(property) });
   })
 );
 

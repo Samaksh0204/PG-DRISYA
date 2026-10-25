@@ -53,6 +53,12 @@ describe('validateEnv', () => {
     expect(flags.moderationEnabled()).toBe(false);
     delete process.env.LISTING_MODERATION;
     expect(flags.aadhaarSimulation()).toBe(false);
+    const prev = { sim: process.env.AADHAAR_SIMULATION, env: process.env.NODE_ENV };
+    process.env.AADHAAR_SIMULATION = 'true';
+    process.env.NODE_ENV = 'production';
+    expect(flags.aadhaarSimulation()).toBe(false); // never simulated in production
+    process.env.NODE_ENV = prev.env;
+    if (prev.sim === undefined) delete process.env.AADHAAR_SIMULATION; else process.env.AADHAAR_SIMULATION = prev.sim;
     expect(appUrl()).toBe('http://localhost:5173');
   });
 });

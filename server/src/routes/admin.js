@@ -15,6 +15,8 @@ const { isObjectId, escapeRegex, parsePagination } = require('../utils/validator
 const { fanOutNewListing } = require('./properties');
 const { recomputePropertyRating } = require('../services/ratings');
 
+const { audit } = require('../utils/audit');
+
 const router = express.Router();
 router.use(auth, requireRole('admin'));
 
@@ -110,6 +112,7 @@ router.patch(
       default:
         break;
     }
+    await audit(req, `admin.listing_${action}`, { targetType: 'listing', targetId: property._id });
     res.json({ listing: property });
   })
 );
@@ -158,6 +161,7 @@ router.patch(
       user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
     await user.save();
+    await audit(req, 'admin.user_updated', { targetType: 'user', targetId: user._id, meta: { suspended, verified, role } });
     res.json({ user: { ...user.toProfile(), suspended: user.suspended, suspendedReason: user.suspendedReason } });
   })
 );
@@ -207,6 +211,7 @@ router.patch(
     report.resolvedAt = new Date();
     await report.save();
     await notify(report.reporterId, 'Update on your report', `Thanks for your report. Our team has ${status} it.`, 'report', { reportId: report._id });
+    await audit(req, `admin.report_${status}`, { targetType: 'report', targetId: report._id, meta: { removeContent: !!removeContent } });
     res.json({ report });
   })
 );

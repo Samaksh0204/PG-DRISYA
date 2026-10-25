@@ -493,7 +493,7 @@ function MessageModal({ listing, ownerId, onClose }: { listing: PropertyListing;
         </div>
       ) : (
         <>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5} className="input w-full resize-none" aria-label="Message" />
+          <textarea data-autofocus value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5} className="input w-full resize-none" aria-label="Message" />
           <p className="mt-1 text-xs text-ink-500">Don't share bank details or OTPs in chat.</p>
           <div className="mt-3"><ErrorText>{error}</ErrorText></div>
           <div className="mt-4 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Cancel</button><button onClick={send} disabled={!text.trim() || sending} className="btn-primary flex-1">{sending ? 'Sending…' : 'Send'}</button></div>
@@ -547,7 +547,7 @@ function VisitModal({ listing, onClose }: { listing: PropertyListing; onClose: (
               </div>
             </>
           )}
-          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Note for the owner (optional)" className="input mt-4 w-full" />
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Note for the owner (optional)" aria-label="Note for the owner (optional)" className="input mt-4 w-full" />
           <div className="mt-3"><ErrorText>{error}</ErrorText></div>
           <div className="mt-4 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Cancel</button><button onClick={book} disabled={!date || !slot || sending} className="btn-primary flex-1">{sending ? 'Booking…' : 'Request visit'}</button></div>
         </>
