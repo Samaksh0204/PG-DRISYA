@@ -98,9 +98,9 @@ export function RegisterScreen() {
             <Text style={{ fontSize: 18 }}>{acceptTerms ? '☑️' : '⬜'}</Text>
             <Text style={{ flex: 1, fontSize: 13, color: colors.ink[600] }}>
               I agree to the{' '}
-              <Text style={{ color: colors.coral[600], fontWeight: '600' }} onPress={() => WEB_URL && Linking.openURL(`${WEB_URL}/#/terms`)}>Terms of Service</Text>
+              <Text style={{ color: colors.brand[600], fontWeight: '600' }} onPress={() => WEB_URL && Linking.openURL(`${WEB_URL}/#/terms`)}>Terms of Service</Text>
               {' '}and{' '}
-              <Text style={{ color: colors.coral[600], fontWeight: '600' }} onPress={() => WEB_URL && Linking.openURL(`${WEB_URL}/#/privacy`)}>Privacy Policy</Text>, and I'm at least 18.
+              <Text style={{ color: colors.brand[600], fontWeight: '600' }} onPress={() => WEB_URL && Linking.openURL(`${WEB_URL}/#/privacy`)}>Privacy Policy</Text>, and I'm at least 18.
             </Text>
           </TouchableOpacity>
 
@@ -113,7 +113,7 @@ export function RegisterScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.loginLink} onPress={() => nav.goBack()}>
-            <Text style={styles.loginLinkText}>Already have an account? <Text style={{ color: colors.coral[600], fontWeight: '700' }}>Sign In</Text></Text>
+            <Text style={styles.loginLinkText}>Already have an account? <Text style={{ color: colors.brand[600], fontWeight: '700' }}>Sign In</Text></Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing['2xl'] },
 
   header: { alignItems: 'center', marginBottom: spacing['2xl'] },
-  logo: { fontSize: 32, fontWeight: '800', color: colors.coral[500] },
+  logo: { fontSize: 32, fontWeight: '800', color: colors.brand[500] },
   subtitle: { fontSize: 16, color: colors.ink[500], marginTop: spacing.sm },
 
   form: {},
@@ -142,12 +142,12 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg,
     paddingVertical: 14, alignItems: 'center', backgroundColor: colors.ink[50],
   },
-  roleBtnActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  roleBtnActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
   roleBtnText: { fontSize: 14, fontWeight: '600', color: colors.ink[600] },
-  roleBtnTextActive: { color: colors.coral[600] },
+  roleBtnTextActive: { color: colors.brand[600] },
 
   registerBtn: {
-    backgroundColor: colors.coral[500], borderRadius: radius.lg,
+    backgroundColor: colors.brand[500], borderRadius: radius.lg,
     paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'],
   },
   registerBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },

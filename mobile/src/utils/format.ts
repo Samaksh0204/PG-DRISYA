@@ -59,4 +59,55 @@ export const STATUS_LABEL: Record<string, string> = {
   active: 'Live',
   inactive: 'Paused',
   pending_review: 'In review',
+  rejected_listing: 'Changes needed',
+  open: 'Open',
+  resolved: 'Resolved',
+  dismissed: 'Dismissed',
+  new: 'New',
+  contacted: 'Contacted',
+  closed: 'Closed',
 };
+
+// ISO timestamp or date → "25 Oct 2026"
+export function formatDate(value: string | undefined | null): string {
+  if (!value) return '';
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export function timeAgo(value: string, now: Date = new Date()): string {
+  const s = Math.floor((now.getTime() - new Date(value).getTime()) / 1000);
+  if (Number.isNaN(s)) return '';
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(value);
+}
+
+export const pluralize = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export const avatarUrl = (name: string, bg = '102A43') =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=${bg}&color=fff&size=200`;
+
+// Ask image CDNs for a copy sized for the phone instead of the full original.
+export function optimizeImage(url: string | undefined, width: number): string | undefined {
+  if (!url) return url;
+  try {
+    if (url.includes('res.cloudinary.com') && url.includes('/upload/') && !/\/upload\/[^/]*(w_|q_|f_)/.test(url)) {
+      return url.replace('/upload/', `/upload/f_auto,q_auto,c_limit,w_${width}/`);
+    }
+    if (url.includes('images.pexels.com')) {
+      const base = url.split('?')[0];
+      return `${base}?auto=compress&cs=tinysrgb&w=${width}`;
+    }
+  } catch {
+    /* leave unknown URLs untouched */
+  }
+  return url;
+}

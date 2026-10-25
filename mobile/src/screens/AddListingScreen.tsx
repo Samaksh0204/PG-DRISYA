@@ -155,7 +155,7 @@ export function AddListingScreen() {
   };
 
   if (initialLoading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.coral[500]} /></View>;
+    return <View style={styles.center}><ActivityIndicator size="large" color={colors.brand[500]} /></View>;
   }
 
   return (
@@ -175,7 +175,7 @@ export function AddListingScreen() {
             </View>
           ))}
           <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImages} disabled={uploading}>
-            {uploading ? <ActivityIndicator color={colors.coral[500]} /> : <Text style={styles.addPhotoText}>+ Add</Text>}
+            {uploading ? <ActivityIndicator color={colors.brand[500]} /> : <Text style={styles.addPhotoText}>+ Add</Text>}
           </TouchableOpacity>
         </ScrollView>
 
@@ -242,7 +242,7 @@ export function AddListingScreen() {
           {Object.entries(AMENITY_MAP).map(([key, val]) => (
             <TouchableOpacity key={key} style={[styles.amenityChip, amenities.includes(key) && styles.amenityChipActive]} onPress={() => toggleAmenity(key)}>
               <Text style={styles.amenityIcon}>{val.icon}</Text>
-              <Text style={[styles.amenityLabel, amenities.includes(key) && { color: colors.coral[600] }]}>{val.label}</Text>
+              <Text style={[styles.amenityLabel, amenities.includes(key) && { color: colors.brand[600] }]}>{val.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -279,16 +279,16 @@ const styles = StyleSheet.create({
 
   chipRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   chip: { borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.ink[50] },
-  chipActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  chipActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
   chipText: { fontSize: 13, color: colors.ink[600], fontWeight: '500' },
-  chipTextActive: { color: colors.coral[600], fontWeight: '700' },
+  chipTextActive: { color: colors.brand[600], fontWeight: '700' },
 
   amenityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   amenityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.ink[50] },
-  amenityChipActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  amenityChipActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
   amenityIcon: { fontSize: 14 },
   amenityLabel: { fontSize: 12, color: colors.ink[600] },
 
-  submitBtn: { backgroundColor: colors.coral[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
+  submitBtn: { backgroundColor: colors.brand[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
   submitBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 });

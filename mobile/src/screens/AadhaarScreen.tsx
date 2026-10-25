@@ -6,6 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { verifyAadhaar } from '../services/api';
+import { IconTile } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
 
@@ -20,7 +21,7 @@ export function AadhaarScreen() {
   if (process.env.EXPO_PUBLIC_AADHAAR_SIMULATION !== 'true') {
     return (
       <View style={styles.verifiedWrap}>
-        <Text style={styles.checkIcon}>🪪</Text>
+        <IconTile name="id-card-outline" size={72} />
         <Text style={styles.verifiedTitle}>Coming soon</Text>
         <Text style={styles.verifiedSub}>Online ID verification isn't available yet. Our team verifies hosts manually. Never share your Aadhaar number in chat.</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => nav.goBack()}>
@@ -33,7 +34,7 @@ export function AadhaarScreen() {
   if (user?.aadhaarVerified) {
     return (
       <View style={styles.verifiedWrap}>
-        <Text style={styles.checkIcon}>✅</Text>
+        <IconTile name="shield-checkmark" size={72} />
         <Text style={styles.verifiedTitle}>Aadhaar Verified</Text>
         <Text style={styles.verifiedSub}>Your identity has been verified successfully.</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => nav.goBack()}>
@@ -71,7 +72,7 @@ export function AadhaarScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.content}>
-        <Text style={styles.icon}>🪪</Text>
+        <View style={{ alignSelf: 'center', marginBottom: spacing.lg }}><IconTile name="id-card-outline" size={64} /></View>
         <Text style={styles.title}>Verify Your Aadhaar</Text>
         <Text style={styles.subtitle}>Verified users get a trust badge and better visibility on their listings.</Text>
 
@@ -92,7 +93,7 @@ export function AadhaarScreen() {
         </TouchableOpacity>
 
         <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>🔒 Your data is safe</Text>
+          <Text style={styles.infoTitle}>Your data is safe</Text>
           <Text style={styles.infoText}>We only store the verification status, not the full Aadhaar number. Your data is encrypted and secure.</Text>
         </View>
       </View>
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
 
   verifiedWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, padding: spacing['2xl'] },
   checkIcon: { fontSize: 56, marginBottom: spacing.lg },
-  verifiedTitle: { fontSize: 22, fontWeight: '800', color: colors.teal[700] },
+  verifiedTitle: { fontSize: 22, fontWeight: '800', color: colors.ink[900], marginTop: spacing.lg },
   verifiedSub: { fontSize: 14, color: colors.ink[500], marginTop: spacing.sm, textAlign: 'center' },
   backBtn: { marginTop: spacing.xl, backgroundColor: colors.teal[500], borderRadius: radius.lg, paddingHorizontal: spacing['3xl'], paddingVertical: spacing.md },
   backBtnText: { color: colors.white, fontWeight: '700' },
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
   },
   hint: { fontSize: 12, color: colors.ink[400], marginTop: spacing.xs, textAlign: 'center' },
 
-  verifyBtn: { backgroundColor: colors.coral[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
+  verifyBtn: { backgroundColor: colors.brand[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
   verifyBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 
   infoBox: { marginTop: spacing['2xl'], padding: spacing.lg, backgroundColor: colors.teal[50], borderRadius: radius.lg },
