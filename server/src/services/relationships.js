@@ -1,0 +1,29 @@
+const Visit = require('../models/Visit');
+const Booking = require('../models/Booking');
+
+// Did this tenant actually stay (accepted/completed booking) at the property?
+async function hasStayed(userId, propertyId) {
+  return !!(await Booking.exists({ tenantId: userId, propertyId, status: { $in: ['accepted', 'completed'] } }));
+}
+
+// Has the tenant had a real interaction with the property (completed visit or a stay)?
+// This is the bar for leaving a review — stops drive-by fake reviews.
+async function canReviewProperty(userId, propertyId) {
+  if (await hasStayed(userId, propertyId)) return true;
+  return !!(await Visit.exists({ tenantId: userId, propertyId, status: 'completed' }));
+}
+
+// Owner phone number is revealed only after a confirmed visit or accepted booking
+// (Airbnb reveals contact details after a booking is confirmed).
+async function canSeeOwnerContact(viewer, ownerId) {
+  if (!viewer) return false;
+  if (viewer.role === 'admin') return true;
+  if (viewer._id.toString() === ownerId.toString()) return true;
+  const [visit, booking] = await Promise.all([
+    Visit.exists({ tenantId: viewer._id, ownerId, status: { $in: ['confirmed', 'completed'] } }),
+    Booking.exists({ tenantId: viewer._id, ownerId, status: { $in: ['accepted', 'completed'] } }),
+  ]);
+  return !!(visit || booking);
+}
+
+module.exports = { hasStayed, canReviewProperty, canSeeOwnerContact };
