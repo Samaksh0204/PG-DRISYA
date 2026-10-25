@@ -8,6 +8,7 @@ import { fetchListingDetail, replyToReview, toggleFavorite, WEB_URL } from '../s
 import { useAuth } from '../context/AuthContext';
 import { AMENITY_MAP, GENDER_LABEL, OCCUPANCY_LABEL } from '../data/amenities';
 import { Avatar, Badge, Button, Empty, Icon, ScreenLoader, Stars, type IconName } from '../components/ui';
+import { IdentityBadge } from './AadhaarScreen';
 import { colors } from '../theme/colors';
 import { spacing, radius, shadow, SCREEN } from '../theme/spacing';
 import { formatDate, formatINR, moveInCost, optimizeImage, pluralize, timeAgo } from '../utils/format';
@@ -234,7 +235,7 @@ export function ListingDetailScreen() {
             <View style={styles.mapIcon}><Icon name="map-outline" size={22} color={colors.white} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.mapTitle}>{property.locality || property.city}</Text>
-              <Text style={styles.small}>Open in Maps for directions</Text>
+              <Text style={styles.small}>{property.exactLocation ? 'Exact location · open in Maps for directions' : 'Approximate area · exact location after your visit is confirmed'}</Text>
             </View>
             <Icon name="chevron-forward" size={18} color={colors.ink[400]} />
           </TouchableOpacity>
@@ -249,8 +250,9 @@ export function ListingDetailScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={styles.hostName}>{owner.name}</Text>
-                      {owner.verified && <Icon name="shield-checkmark" size={16} color={colors.brand[500]} />}
+                      {owner.verified && <Icon name="shield-checkmark" size={16} color={colors.brand[500]} accessibilityLabel="Host checked by the Drisya team" />}
                     </View>
+                    {owner.identityVerified && <View style={{ marginTop: 4 }}><IdentityBadge /></View>}
                     <Text style={styles.meta}>Hosting since {owner.joinedYear} · {pluralize(owner.listingCount, 'listing')}</Text>
                     {owner.reviewCount > 0 && (
                       <View style={[styles.metaRow, { marginTop: 2 }]}>

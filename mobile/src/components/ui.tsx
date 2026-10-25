@@ -13,8 +13,9 @@ import type { IconName } from '../data/amenities';
 
 export type { IconName };
 
-export function Icon({ name, size = 18, color = colors.ink[700], style }: { name: IconName; size?: number; color?: string; style?: StyleProp<TextStyle> }) {
-  return <Ionicons name={name} size={size} color={color} style={style} />;
+export function Icon({ name, size = 18, color = colors.ink[700], style, accessibilityLabel }: { name: IconName; size?: number; color?: string; style?: StyleProp<TextStyle>; accessibilityLabel?: string }) {
+  // Decorative unless labelled.
+  return <Ionicons name={name} size={size} color={color} style={style} accessibilityLabel={accessibilityLabel} accessible={!!accessibilityLabel} importantForAccessibility={accessibilityLabel ? 'yes' : 'no-hide-descendants'} />;
 }
 
 type ButtonVariant = 'primary' | 'outline' | 'danger' | 'ghost' | 'dark';

@@ -8,6 +8,7 @@ import { fetchPublicProfile } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ListingCard } from '../components/ListingCard';
 import { Avatar, Badge, Button, Empty, Icon, ScreenLoader, Stars } from '../components/ui';
+import { IdentityBadge } from './AadhaarScreen';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 import { formatDate, pluralize, timeAgo } from '../utils/format';
@@ -59,7 +60,11 @@ export function HostProfileScreen() {
           {user.reviewCount > 0 && <Stat value={`${user.rating.toFixed(1)}★`} label={pluralize(user.reviewCount, 'review')} />}
           {user.responseRate > 0 && <Stat value={`${user.responseRate}%`} label="Response rate" />}
         </View>
-        {user.responseTime && user.responseRate > 0 ? <Badge label={`Usually replies ${user.responseTime}`} icon="time-outline" /> : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
+          {user.identityVerified && <IdentityBadge />}
+          {user.verified && <Badge label="Host checked by Drisya" icon="shield-checkmark" tone="ink" />}
+          {user.responseTime && user.responseRate > 0 ? <Badge label={`Usually replies ${user.responseTime}`} icon="time-outline" /> : null}
+        </View>
         {!!user.bio && <Text style={s.bio}>{user.bio}</Text>}
         {!isMe && (
           <View style={s.actions}>

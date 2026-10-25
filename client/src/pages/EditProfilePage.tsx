@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Save, Camera, KeyRound, Download, Trash2, MailCheck, ShieldCheck } from 'lucide-react';
+import { Save, Camera, KeyRound, Download, Trash2, MailCheck, ShieldCheck, Fingerprint } from 'lucide-react';
+import { IdentityVerificationCard } from '../components/IdentityVerification';
 import { useApp } from '../context/AppContext';
 import { updateProfile, changePassword, resendVerification, exportMyData, deleteAccount, uploadImages, setToken } from '../lib/api';
 import { Avatar, ErrorText, SuccessText, SignInRequired, PageLoader, Modal } from '../components/ui';
@@ -18,6 +19,10 @@ export function EditProfilePage() {
         </div>
         <ProfileSection />
         <EmailSection />
+        <section id="identity" className="card p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-ink-900 dark:text-ink-100"><Fingerprint className="h-4 w-4 text-brand-500" /> Identity verification</h2>
+          <IdentityVerificationCard />
+        </section>
         <PasswordSection />
         <PrivacySection />
       </div>

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { request, setToken, setUnauthorizedHandler, login, register, mapProperty, sendMessage, fetchListingDetail } from '../src/services/api';
+import * as SecureStore from 'expo-secure-store';
+import { request, setToken, setUnauthorizedHandler, login, register, mapProperty, sendMessage, fetchListingDetail, getToken, clearToken, __resetTokenCache, fetchThread } from '../src/services/api';
 
 const json = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
 
@@ -7,6 +8,8 @@ describe('mobile api client', () => {
   let fetchMock: jest.SpyInstance;
   beforeEach(async () => {
     await AsyncStorage.clear();
+    await clearToken();
+    __resetTokenCache();
     setUnauthorizedHandler(null);
     fetchMock = jest.spyOn(global, 'fetch');
   });
@@ -42,7 +45,9 @@ describe('mobile api client', () => {
   test('login and register store the token; register sends terms consent', async () => {
     fetchMock.mockImplementation(() => json(200, { token: 'T1', user: { id: 'u1' } }));
     await login('a@b.com', 'Secret123');
-    expect(await AsyncStorage.getItem('drisya_token')).toBe('T1');
+    // Stored in the secure keychain, not in plain AsyncStorage.
+    expect(await SecureStore.getItemAsync('drisya_token')).toBe('T1');
+    expect(await AsyncStorage.getItem('drisya_token')).toBeNull();
     await register({ fullName: 'A', email: 'a@b.com', password: 'Secret123', role: 'tenant', acceptTerms: true });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).acceptTerms).toBe(true);
   });
@@ -66,6 +71,20 @@ describe('mobile api client', () => {
     expect(d.owner?.phone).toBeUndefined();
     expect(d.reviews[0].author).toBe('Former member');
     expect(d.viewer?.canReview).toBe(true);
+  });
+
+  test('a token saved by an older app version moves to secure storage', async () => {
+    await AsyncStorage.setItem('drisya_token', 'OLD');
+    __resetTokenCache();
+    expect(await getToken()).toBe('OLD');
+    expect(await SecureStore.getItemAsync('drisya_token')).toBe('OLD');
+    expect(await AsyncStorage.getItem('drisya_token')).toBeNull();
+  });
+
+  test('thread requests are scoped to the other person and listing', async () => {
+    fetchMock.mockImplementation(() => json(200, { messages: [], hasMore: false }));
+    await fetchThread('u2', null, { before: '2026-10-01T00:00:00.000Z' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/messages/thread?with=u2&propertyId=none&before=2026-10-01T00%3A00%3A00.000Z');
   });
 
   test('mapProperty defaults', () => {

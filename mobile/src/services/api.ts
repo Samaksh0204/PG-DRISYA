@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type {
   PropertyListing, Owner, Review, City, User, NotificationItem, ViewerInfo, Visit, Booking, Conversation, ListingPage,
   SiteStats, PublicProfile, CategoryRatings, ReportReason, ReportTarget, AdminStats, AdminListing, AdminUser, AdminReport, Inquiry,
+  IdentityState, ThreadPage,
 } from '../types';
 import { apiUrlProblem } from '../utils/format';
 import { AVATAR_BG } from '../theme/colors';
@@ -16,9 +19,38 @@ if (urlProblem) console.warn(`[api] ${urlProblem} See mobile/.env.example.`);
 const REQUEST_TIMEOUT_MS = 15000;
 const TOKEN_KEY = 'drisya_token';
 
-export const getToken = () => AsyncStorage.getItem(TOKEN_KEY);
-export const setToken = (token: string) => AsyncStorage.setItem(TOKEN_KEY, token);
-export const clearToken = () => AsyncStorage.removeItem(TOKEN_KEY);
+// The session token lives in the OS keychain (iOS) / Keystore-backed storage (Android),
+// not in plain AsyncStorage. Expo web has no SecureStore, so it falls back there.
+const useSecureStore = Platform.OS !== 'web';
+let cachedToken: string | null | undefined;
+
+export async function getToken(): Promise<string | null> {
+  if (cachedToken !== undefined) return cachedToken;
+  if (!useSecureStore) return (cachedToken = await AsyncStorage.getItem(TOKEN_KEY));
+  let token = await SecureStore.getItemAsync(TOKEN_KEY);
+  if (!token) {
+    // One-time move for people signed in with an older version of the app.
+    const legacy = await AsyncStorage.getItem(TOKEN_KEY);
+    if (legacy) {
+      await SecureStore.setItemAsync(TOKEN_KEY, legacy);
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      token = legacy;
+    }
+  }
+  return (cachedToken = token);
+}
+export async function setToken(token: string) {
+  cachedToken = token;
+  if (useSecureStore) await SecureStore.setItemAsync(TOKEN_KEY, token);
+  else await AsyncStorage.setItem(TOKEN_KEY, token);
+}
+export async function clearToken() {
+  cachedToken = null;
+  if (useSecureStore) await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await AsyncStorage.removeItem(TOKEN_KEY);
+}
+// Tests only: forget the in-memory copy.
+export const __resetTokenCache = () => { cachedToken = undefined; };
 
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: (() => void) | null) {
@@ -97,6 +129,7 @@ export function mapProperty(p: any): PropertyListing {
     roomsAvailable: typeof p.roomsAvailable === 'number' ? p.roomsAvailable : 1,
     rules: p.rules || [],
     createdAt: p.createdAt,
+    exactLocation: !!p.exactLocation,
   };
 }
 
@@ -170,6 +203,7 @@ export async function fetchListingDetail(id: string): Promise<{ property: Proper
       phone: o.phone,
       joinedYear: o.createdAt ? new Date(o.createdAt).getFullYear() : new Date().getFullYear(),
       verified: !!o.verified,
+      identityVerified: !!o.identityVerified,
       responseRate: o.responseRate || 0,
       responseTime: o.responseTime || 'within a day',
       rating: o.rating || 0,
@@ -233,10 +267,28 @@ export async function fetchConversations(): Promise<Conversation[]> {
     messages: c.messages || [],
   }));
 }
-export const sendMessage = (body: { receiverId: string; text: string; propertyId?: string | null }) =>
-  post<{ message: any }>('/messages', { ...body, propertyId: body.propertyId || undefined });
+export const sendMessage = (body: { receiverId: string; text: string; propertyId?: string | null; clientId?: string }) =>
+  post<{ message: any; duplicate?: boolean; warning?: 'contact_info' }>('/messages', { ...body, propertyId: body.propertyId || undefined });
+
+// One conversation, newest page first; `before` loads older, `after` polls for new.
+export function fetchThread(withUserId: string, propertyId: string | null | undefined, opts: { before?: string; after?: string } = {}) {
+  const qs = [`with=${encodeURIComponent(withUserId)}`, `propertyId=${encodeURIComponent(propertyId || 'none')}`];
+  if (opts.before) qs.push(`before=${encodeURIComponent(opts.before)}`);
+  if (opts.after) qs.push(`after=${encodeURIComponent(opts.after)}`);
+  return request<ThreadPage>(`/messages/thread?${qs.join('&')}`);
+}
+export const blockUser = (userId: string) => post<{ blocked: boolean }>('/messages/block', { userId });
+export const unblockUser = (userId: string) => del<{ blocked: boolean }>(`/messages/block/${userId}`);
+
+// Random id so a retried send is stored once (the server de-duplicates on it).
+export const newClientId = () => `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
 export const markRead = (propertyId: string | null, senderId: string) => put<{ success: boolean }>('/messages/read', { propertyId, senderId });
 export const fetchUnreadMessageCount = async () => (await request<{ count: number }>('/messages/unread-count')).count;
+
+// ── Identity verification ───────────────────────────
+export const fetchIdentityStatus = () => request<IdentityState>('/identity/status');
+export const startIdentityVerification = () => post<{ status: 'pending'; redirectUrl: string }>('/identity/start');
+export const cancelIdentityVerification = () => post<IdentityState>('/identity/cancel');
 
 // ── Notifications ───────────────────────────────────
 export const fetchNotifications = (page = 1) =>
