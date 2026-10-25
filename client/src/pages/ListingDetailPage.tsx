@@ -432,17 +432,17 @@ function BookingCard({ listing, loggedIn, emailVerified, onNeedLogin }: { listin
     <div id="booking-card" className="card scroll-mt-24 p-6 transition-shadow duration-500">
       <div className="mb-4 flex items-baseline justify-between">
         <div><span className="text-2xl font-bold text-ink-900 dark:text-ink-100">{formatINR(listing.price)}</span><span className="text-sm text-ink-500"> /month</span></div>
-        {listing.reviewCount > 0 && <span className="flex items-center gap-1 text-sm"><Star className="h-3.5 w-3.5 fill-warning text-warning" /> {listing.rating.toFixed(1)}</span>}
+        {listing.reviewCount > 0 && <span className="flex items-center gap-1 text-sm font-semibold text-ink-900 dark:text-ink-100"><Star className="h-3.5 w-3.5 fill-warning text-warning" /> {listing.rating.toFixed(1)}</span>}
       </div>
 
       <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-ink-300 dark:border-ink-600">
         <label className="border-r border-ink-300 p-3 dark:border-ink-600">
           <span className="block text-[10px] font-bold uppercase text-ink-700 dark:text-ink-200">Move-in</span>
-          <input type="date" min={earliest} max={addDays(today, 180)} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className="w-full bg-transparent text-sm outline-none" />
+          <input type="date" min={earliest} max={addDays(today, 180)} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} aria-label="Move-in date" className="mt-0.5 w-full bg-transparent text-sm font-medium text-ink-900 outline-none dark:text-ink-100" />
         </label>
         <label className="p-3">
           <span className="block text-[10px] font-bold uppercase text-ink-700 dark:text-ink-200">Stay</span>
-          <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="w-full bg-transparent text-sm outline-none">
+          <select value={months} onChange={(e) => setMonths(Number(e.target.value))} aria-label="Length of stay" className="mt-0.5 w-full bg-transparent text-sm font-medium text-ink-900 outline-none dark:text-ink-100">
             {[1, 2, 3, 6, 9, 11, 12, 24].map((m) => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
           </select>
         </label>

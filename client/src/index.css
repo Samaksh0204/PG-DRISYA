@@ -53,7 +53,14 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-page font-sans text-ink-700 antialiased;
+    /* Dark mode needs light default text: anything that doesn't set its own colour
+       (native date/select controls, small labels) would otherwise be navy on navy. */
+    @apply bg-page font-sans text-ink-700 antialiased dark:text-ink-200;
+  }
+  /* Native dropdown lists don't inherit the page background in every browser. */
+  html.dark select option {
+    background-color: rgb(var(--ink-900));
+    color: rgb(var(--ink-100));
   }
   h1, h2, h3, h4 {
     @apply text-ink-900 dark:text-white;

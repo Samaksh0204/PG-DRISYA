@@ -6,12 +6,16 @@ import type {
   SiteStats, PublicProfile, CategoryRatings, ReportReason, ReportTarget, AdminStats, AdminListing, AdminUser, AdminReport, Inquiry,
   IdentityState, ThreadPage,
 } from '../types';
-import { apiUrlProblem } from '../utils/format';
+import Constants from 'expo-constants';
+import { apiUrlProblem, resolveDevUrl } from '../utils/format';
 import { AVATAR_BG } from '../theme/colors';
 
 // EXPO_PUBLIC_* variables are inlined at build time (set them in mobile/.env or eas.json).
-export const BASE = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
-export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || '').replace(/\/$/, '');
+// In development, a LAN address is corrected to your computer's current one (see resolveDevUrl).
+const expoHost = Constants.expoConfig?.hostUri;
+export const BASE = (resolveDevUrl(process.env.EXPO_PUBLIC_API_URL, expoHost, __DEV__, 5000, '/api') || 'http://localhost:5000/api').replace(/\/$/, '');
+export const WEB_URL = (resolveDevUrl(process.env.EXPO_PUBLIC_WEB_URL, expoHost, __DEV__, 5173, '') || '').replace(/\/$/, '');
+if (__DEV__) console.log(`[api] Using ${BASE}`);
 
 const urlProblem = apiUrlProblem(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 if (urlProblem) console.warn(`[api] ${urlProblem} See mobile/.env.example.`);
