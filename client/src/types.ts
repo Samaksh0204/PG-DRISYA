@@ -42,6 +42,7 @@ export interface Owner {
   phone?: string;
   joinedYear: number;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   rating: number;
@@ -85,6 +86,8 @@ export interface PropertyListing {
   roomsAvailable: number;
   rules: string[];
   createdAt?: string;
+  // false = lat/lng are rounded to ~1 km (public view); true for owner / confirmed tenants.
+  exactLocation?: boolean;
 }
 
 export interface City {
@@ -105,6 +108,8 @@ export interface Conversation {
   participantAvatar: string;
   participantRole: Role;
   participantDeleted?: boolean;
+  blockedByMe?: boolean;
+  blockedMe?: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unread: number;
@@ -117,6 +122,10 @@ export interface Message {
   text: string;
   time: string;
   read: boolean;
+  clientId?: string | null;
+  // Client-only state for messages that haven't reached the server yet.
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface NotificationItem {
@@ -198,7 +207,38 @@ export interface UserProfile {
   verified: boolean;
   emailVerified: boolean;
   aadhaarVerified: boolean;
+  identityStatus?: IdentityStatus;
+  identityVerifiedAt?: string | null;
   createdAt: string;
+}
+
+// Identity (Aadhaar) verification through an authorised provider — separate from
+// email confirmation and from the admin "Verified" badge on listings/hosts.
+export type IdentityStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export interface IdentityAttempt {
+  id: string;
+  status: 'pending' | 'verified' | 'rejected' | 'failed' | 'cancelled' | 'expired' | 'revoked';
+  provider: string;
+  reason: string;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface IdentityState {
+  status: IdentityStatus;
+  verifiedAt: string | null;
+  available: boolean;
+  latestAttempt: IdentityAttempt | null;
+}
+
+export interface ThreadPage {
+  messages: Message[];
+  hasMore: boolean;
+  participant: { id: string; fullName: string; avatar: string; role: Role; deleted: boolean; suspended: boolean };
+  property: { id: string; title: string; photo: string } | null;
+  blockedByMe: boolean;
+  blockedMe: boolean;
 }
 
 export interface PublicProfile {
@@ -209,6 +249,7 @@ export interface PublicProfile {
   city: string;
   bio: string;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   createdAt: string;

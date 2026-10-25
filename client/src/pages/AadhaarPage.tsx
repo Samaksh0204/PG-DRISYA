@@ -1,32 +1,37 @@
 import { useState } from 'react';
-import { ShieldCheck, Info } from 'lucide-react';
+import { Fingerprint, FlaskConical } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { verifyAadhaar } from '../lib/api';
-import { ErrorText } from '../components/ui';
+import { ErrorText, PageLoader, SignInRequired } from '../components/ui';
+import { IdentityVerificationCard } from '../components/IdentityVerification';
 import { siteConfig } from '../lib/config';
 
-// Online ID verification is OFF in production. Collecting Aadhaar numbers requires
-// UIDAI authorisation or a DigiLocker / licensed KYC provider. The simulated form below
-// is only shown when VITE_AADHAAR_SIMULATION=true (and the server has AADHAAR_SIMULATION=true).
+// Identity verification runs on an authorised provider's pages (see server
+// routes/identity.js). The old number-entry demo below is development-only: it shows
+// only with VITE_AADHAAR_SIMULATION=true, and the server refuses it in production.
 export function AadhaarPage() {
-  const { auth, refreshAuth, navigate } = useApp();
+  const { auth, authLoading } = useApp();
+  if (authLoading) return <PageLoader />;
+  if (!auth) return <SignInRequired message="Log in to verify your identity." />;
+  return (
+    <div className="container-page py-12">
+      <div className="mx-auto max-w-xl space-y-6">
+        <div className="card p-6 sm:p-8">
+          <h1 className="mb-1 flex items-center gap-2 text-xl font-bold text-ink-900 dark:text-white"><Fingerprint className="h-5 w-5 text-brand-500" /> Identity verification</h1>
+          <p className="mb-5 text-sm text-ink-500">A verified identity helps hosts and tenants trust each other.</p>
+          <IdentityVerificationCard />
+        </div>
+        {siteConfig.aadhaarSimulation && !auth.aadhaarVerified && <SimulationDemo />}
+      </div>
+    </div>
+  );
+}
+
+function SimulationDemo() {
+  const { refreshAuth } = useApp();
   const [num, setNum] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-
-  if (!siteConfig.aadhaarSimulation) {
-    return (
-      <div className="container-page flex min-h-[60vh] items-center justify-center py-12">
-        <div className="card max-w-md p-8 text-center">
-          <Info className="mx-auto h-10 w-10 text-brand-500" />
-          <h1 className="mt-3 text-xl font-bold">Online ID verification is coming soon</h1>
-          <p className="mt-2 text-sm text-ink-600 dark:text-ink-300">For now, our team verifies hosts manually. Never share your Aadhaar number with anyone on chat.</p>
-          <button onClick={() => navigate('/trust')} className="btn-primary mt-6">How we keep Drisya safe</button>
-        </div>
-      </div>
-    );
-  }
-
   const submit = async () => {
     setBusy(true);
     setError('');
@@ -39,21 +44,13 @@ export function AadhaarPage() {
       setBusy(false);
     }
   };
-
   return (
-    <div className="container-page flex min-h-[60vh] items-center justify-center py-12">
-      <div className="card max-w-md p-8">
-        <ShieldCheck className="h-10 w-10 text-brand-500" />
-        <h1 className="mt-3 text-xl font-bold">ID check (demo mode)</h1>
-        <p className="mt-1 text-xs text-amber-700">Simulated — no real verification takes place. Do not enable in production.</p>
-        {auth?.aadhaarVerified ? <p className="mt-4 text-sm text-teal-700">Done (ending {auth && '····'}).</p> : (
-          <>
-            <input className="input mt-4 w-full" inputMode="numeric" maxLength={14} placeholder="12-digit number" value={num} onChange={(e) => setNum(e.target.value)} aria-label="Aadhaar number" />
-            <div className="mt-3"><ErrorText>{error}</ErrorText></div>
-            <button onClick={submit} disabled={busy} className="btn-primary mt-4 w-full">{busy ? 'Checking…' : 'Check'}</button>
-          </>
-        )}
-      </div>
+    <div className="card border-dashed p-6">
+      <p className="flex items-center gap-2 text-sm font-semibold text-amber-700"><FlaskConical className="h-4 w-4" /> Development demo</p>
+      <p className="mt-1 text-xs text-ink-500">Simulated — no real verification takes place. Disabled on production servers.</p>
+      <input className="input mt-4 w-full" inputMode="numeric" maxLength={14} placeholder="12-digit test number" value={num} onChange={(e) => setNum(e.target.value)} aria-label="Test Aadhaar number" />
+      <div className="mt-3"><ErrorText>{error}</ErrorText></div>
+      <button onClick={submit} disabled={busy} className="btn-outline mt-4 w-full">{busy ? 'Checking…' : 'Run demo check'}</button>
     </div>
   );
 }

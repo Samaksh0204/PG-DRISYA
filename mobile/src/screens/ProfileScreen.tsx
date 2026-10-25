@@ -61,7 +61,7 @@ export function ProfileScreen() {
   const checklist = [
     !user.emailVerified && { label: 'Confirm your email', onPress: () => nav.navigate('AccountSettings') },
     !user.phone && { label: 'Add a phone number', onPress: () => nav.navigate('EditProfile') },
-    !user.aadhaarVerified && { label: 'Verify your ID', onPress: () => nav.navigate('Aadhaar') },
+    user.identityStatus !== 'verified' && { label: 'Verify your identity', onPress: () => nav.navigate('Aadhaar') },
   ].filter(Boolean) as { label: string; onPress: () => void }[];
 
   return (
@@ -73,7 +73,7 @@ export function ProfileScreen() {
         <Text style={styles.email}>{user.email}</Text>
         <View style={styles.badges}>
           <Badge solid label={user.role === 'admin' ? 'Admin' : user.role === 'owner' ? 'Host' : 'Tenant'} icon={user.role === 'admin' ? 'shield-checkmark' : user.role === 'owner' ? 'key' : 'home'} />
-          {user.aadhaarVerified && <Badge solid label="ID verified" icon="id-card-outline" tone="ink" />}
+          {user.identityStatus === 'verified' && <Badge solid label="ID verified" icon="finger-print" tone="ink" />}
         </View>
         <Text style={styles.since}>Member since {formatDate(user.createdAt)}</Text>
       </View>
@@ -120,7 +120,7 @@ export function ProfileScreen() {
       <Text style={styles.groupTitle}>Account</Text>
       <View style={styles.group}>
         <ListRow icon="create-outline" label="Edit profile" onPress={() => nav.navigate('EditProfile')} />
-        <ListRow icon="id-card-outline" label="ID verification" sub={user.aadhaarVerified ? 'Verified' : 'Not verified'} onPress={() => nav.navigate('Aadhaar')} />
+        <ListRow icon="finger-print" label="Identity verification" sub={{ verified: 'Verified', pending: 'Pending', rejected: 'Not approved — try again', unverified: 'Not verified' }[user.identityStatus || 'unverified']} onPress={() => nav.navigate('Aadhaar')} />
         <ListRow icon="settings-outline" label="Account settings" sub="Email, password, data, delete account" onPress={() => nav.navigate('AccountSettings')} />
       </View>
 

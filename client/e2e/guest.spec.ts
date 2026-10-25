@@ -62,7 +62,9 @@ test('host profile is public but hides contact details', async ({ page }) => {
   await openListing(page, 'Sunshine Girls PG - Vijay Nagar');
   await page.getByRole('button', { name: /View Anjali Sharma's profile/ }).click();
   await expect(page.getByRole('heading', { name: 'Anjali Sharma' })).toBeVisible();
-  await expect(page.getByText('Identity verified by Drisya')).toBeVisible();
+  // Admin host check and identity verification are shown separately.
+  await expect(page.getByText('Host checked by the Drisya team')).toBeVisible();
+  await expect(page.getByText(/Identity verified through/)).toHaveCount(0);
   await expect(page.getByText('anjali@example.com')).toHaveCount(0);
 });
 

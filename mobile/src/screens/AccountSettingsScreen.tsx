@@ -91,6 +91,12 @@ export function AccountSettingsScreen() {
       </Card>
 
       <Card>
+        <Text style={s.h}>Identity verification</Text>
+        <Text style={s.p}>{{ verified: 'Verified', pending: 'Pending — finish on the provider\'s page', rejected: 'Not approved', unverified: 'Not verified' }[user.identityStatus || 'unverified']}</Text>
+        <Button variant="outline" icon="finger-print" title={user.identityStatus === 'verified' ? 'View details' : 'Verify my identity'} onPress={() => nav.navigate('Aadhaar')} style={{ marginTop: spacing.md }} />
+      </Card>
+
+      <Card>
         <Text style={s.h}>Change password</Text>
         <Field label="Current password" value={current} onChangeText={setCurrent} secureTextEntry autoComplete="password" />
         <Field label="New password" value={next} onChangeText={setNext} secureTextEntry autoComplete="password-new" />

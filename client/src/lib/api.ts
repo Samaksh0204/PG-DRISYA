@@ -1,6 +1,6 @@
 import type {
   PropertyListing, Review, Owner, Conversation, NotificationItem, Visit, Booking, UserProfile,
-  PublicProfile, SiteStats, ViewerInfo, ReportReason, ReportTarget, CategoryRatings,
+  PublicProfile, SiteStats, ViewerInfo, ReportReason, ReportTarget, CategoryRatings, IdentityState, ThreadPage,
 } from '../types';
 
 // Same-origin '/api' by default (Vite proxies it in dev). Set VITE_API_URL for a separately hosted API.
@@ -117,6 +117,7 @@ export function mapProperty(p: any): PropertyListing {
     roomsAvailable: typeof p.roomsAvailable === 'number' ? p.roomsAvailable : 1,
     rules: p.rules || [],
     createdAt: p.createdAt,
+    exactLocation: !!p.exactLocation,
   };
 }
 
@@ -178,6 +179,7 @@ export async function fetchListingDetail(id: string): Promise<ListingDetail> {
           phone: o.phone,
           joinedYear: o.createdAt ? new Date(o.createdAt).getFullYear() : new Date().getFullYear(),
           verified: !!o.verified,
+          identityVerified: !!o.identityVerified,
           responseRate: o.responseRate || 0,
           responseTime: o.responseTime || 'within a day',
           rating: o.rating || 0,
@@ -247,16 +249,38 @@ export async function fetchConversations(): Promise<Conversation[]> {
     participantAvatar: c.participantAvatar || avatarFor(c.participantName, '14b8a6'),
     participantRole: c.participantRole || 'tenant',
     participantDeleted: !!c.participantDeleted,
+    blockedByMe: !!c.blockedByMe,
+    blockedMe: !!c.blockedMe,
     lastMessage: c.lastMessage,
     lastMessageTime: c.lastMessageTime,
     unread: c.unread,
     messages: c.messages || [],
   }));
 }
-export const sendMessage = (body: { propertyId?: string; receiverId: string; text: string }) =>
-  post<{ message: any }>('/messages', { ...body, propertyId: body.propertyId || undefined });
+export const sendMessage = (body: { propertyId?: string; receiverId: string; text: string; clientId?: string }) =>
+  post<{ message: any; duplicate?: boolean; warning?: 'contact_info' }>('/messages', { ...body, propertyId: body.propertyId || undefined });
+
+// One conversation, newest page first; `before` loads older, `after` polls for new.
+export function fetchThread(withUserId: string, propertyId: string | null, opts: { before?: string; after?: string } = {}) {
+  const qs = new URLSearchParams({ with: withUserId, propertyId: propertyId || 'none' });
+  if (opts.before) qs.set('before', opts.before);
+  if (opts.after) qs.set('after', opts.after);
+  return request<ThreadPage>(`/messages/thread?${qs}`);
+}
+export const blockUser = (userId: string) => post<{ blocked: boolean }>('/messages/block', { userId });
+export const unblockUser = (userId: string) => del<{ blocked: boolean }>(`/messages/block/${userId}`);
+
+// Random id so a retried send is stored once (the server de-duplicates on it).
+export const newClientId = () =>
+  `c_${(globalThis.crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^A-Za-z0-9]/g, '').slice(0, 40)}`;
 export const markRead = (propertyId: string, senderId: string) => put<{ success: boolean }>('/messages/read', { propertyId: propertyId || null, senderId });
 export const fetchUnreadMessageCount = async () => (await request<{ count: number }>('/messages/unread-count')).count;
+
+// ── Identity verification ──────────────────────────────────────────────
+
+export const fetchIdentityStatus = () => request<IdentityState>('/identity/status');
+export const startIdentityVerification = () => post<{ status: 'pending'; redirectUrl: string }>('/identity/start');
+export const cancelIdentityVerification = () => post<IdentityState>('/identity/cancel');
 
 // ── Notifications ──────────────────────────────────────────────────────
 

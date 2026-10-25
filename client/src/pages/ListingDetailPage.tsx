@@ -4,11 +4,12 @@ import {
   CheckCircle2, Camera, AlertCircle, Zap, ListChecks, BedDouble, Users, Wallet, CalendarCheck, Star,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { fetchListingDetail, fetchListings, sendMessage, scheduleVisit, requestBooking, submitReview, type ListingDetail } from '../lib/api';
+import { fetchListingDetail, fetchListings, sendMessage, newClientId, scheduleVisit, requestBooking, submitReview, type ListingDetail } from '../lib/api';
 import { ListingCard } from '../components/ListingCard';
 import { ResponseRateBadge } from '../components/Badges';
 import { Avatar, Modal, ErrorText, Stars, StarInput, PageLoader, SafeImage, StatusPill } from '../components/ui';
 import { ReportButton } from '../components/ReportModal';
+import { IdentityBadge } from '../components/IdentityVerification';
 import { AMENITY_ICONS, AMENITY_LABELS } from '../data/amenityIcons';
 import { formatINR, formatDate, formatDay, upcomingDates, localISODate, addDays, moveInCost, routeParams } from '../lib/format';
 import type { PropertyListing, Review, CategoryRatings } from '../types';
@@ -235,7 +236,7 @@ export function ListingDetailPage() {
               <Suspense fallback={<div className="skeleton h-72 rounded-2xl" />}>
                 <ListingLocationMap lat={listing.lat} lng={listing.lng} label={`${[listing.locality, listing.city].filter(Boolean).join(', ')} — exact location shared after your visit is confirmed`} />
               </Suspense>
-              <p className="mt-2 text-xs text-ink-500">Approximate area. The exact address is shared once your visit or booking is confirmed.</p>
+              <p className="mt-2 text-xs text-ink-500">{listing.exactLocation ? 'Exact location — shared with you because your visit or booking is confirmed.' : 'Approximate area. The exact location is shared once your visit or booking is confirmed.'}</p>
             </Section>
 
             <ReviewsSection listing={listing} reviews={reviews} canReview={!!viewer?.canReview} onWrite={() => setModal('review')} />
@@ -274,8 +275,9 @@ export function ListingDetailPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-semibold text-ink-900 dark:text-ink-100">{owner.name}</span>
-                        {owner.verified && <ShieldCheck className="h-4 w-4 text-teal-500" aria-label="Identity verified by Drisya" />}
+                        {owner.verified && <ShieldCheck className="h-4 w-4 text-teal-500" aria-label="Host checked by the Drisya team" />}
                       </div>
+                      {owner.identityVerified && <div className="mt-1"><IdentityBadge /></div>}
                       {owner.responseRate > 0 && <ResponseRateBadge rate={owner.responseRate} time={owner.responseTime} />}
                     </div>
                   </button>
@@ -471,11 +473,13 @@ function MessageModal({ listing, ownerId, onClose }: { listing: PropertyListing;
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // One id per dialog: pressing Send again after a timeout can't create a duplicate.
+  const [clientId] = useState(newClientId);
   const send = async () => {
     setSending(true);
     setError('');
     try {
-      await sendMessage({ propertyId: listing.id, receiverId: ownerId, text: text.trim() });
+      await sendMessage({ propertyId: listing.id, receiverId: ownerId, text: text.trim(), clientId });
       setSent(true);
     } catch (err) {
       setError((err as Error).message);
@@ -489,7 +493,7 @@ function MessageModal({ listing, ownerId, onClose }: { listing: PropertyListing;
         <div className="py-6 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-teal-500" />
           <p className="text-sm text-ink-600 dark:text-ink-300">We'll notify you when the owner replies.</p>
-          <div className="mt-6 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Close</button><button onClick={() => navigate('/messages')} className="btn-primary flex-1">Open messages</button></div>
+          <div className="mt-6 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Close</button><button onClick={() => navigate(`/messages?with=${ownerId}&property=${listing.id}`)} className="btn-primary flex-1">Open conversation</button></div>
         </div>
       ) : (
         <>

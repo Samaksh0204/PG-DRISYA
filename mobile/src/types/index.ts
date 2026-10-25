@@ -25,8 +25,20 @@ export interface User {
   responseRate: number;
   responseTime: string;
   aadhaarVerified: boolean;
-  aadhaarLast4?: string;
+  identityStatus?: IdentityStatus;
+  identityVerifiedAt?: string | null;
   createdAt: string;
+}
+
+// Identity (Aadhaar) verification through an authorised provider — separate from
+// email confirmation and from the admin "Verified" badge on listings/hosts.
+export type IdentityStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export interface IdentityState {
+  status: IdentityStatus;
+  verifiedAt: string | null;
+  available: boolean;
+  latestAttempt: { id: string; status: string; provider: string; reason: string; createdAt: string; completedAt: string | null } | null;
 }
 
 export interface CategoryRatings {
@@ -60,6 +72,7 @@ export interface Owner {
   phone?: string;
   joinedYear: number;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   rating: number;
@@ -103,6 +116,8 @@ export interface PropertyListing {
   roomsAvailable: number;
   rules: string[];
   createdAt?: string;
+  // false = lat/lng rounded to ~1 km (public view); true for owner / confirmed tenants.
+  exactLocation?: boolean;
 }
 
 export interface ListingPage {
@@ -133,6 +148,7 @@ export interface PublicProfile {
   city: string;
   bio: string;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   createdAt: string;
@@ -209,6 +225,19 @@ export interface ChatMessage {
   text: string;
   time: string;
   read: boolean;
+  clientId?: string | null;
+  // Client-only state for messages that haven't reached the server yet.
+  pending?: boolean;
+  failed?: boolean;
+}
+
+export interface ThreadPage {
+  messages: ChatMessage[];
+  hasMore: boolean;
+  participant: { id: string; fullName: string; avatar: string; role: Role; deleted: boolean; suspended: boolean };
+  property: { id: string; title: string; photo: string } | null;
+  blockedByMe: boolean;
+  blockedMe: boolean;
 }
 
 export interface Conversation {
@@ -221,6 +250,8 @@ export interface Conversation {
   participantAvatar: string;
   participantRole: Role;
   participantDeleted?: boolean;
+  blockedByMe?: boolean;
+  blockedMe?: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unread: number;
