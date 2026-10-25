@@ -201,7 +201,7 @@ export function RequestBookingScreen() {
     setError('');
     try {
       const { booking } = await requestBooking({ propertyId: params.propertyId, moveInDate: moveIn, durationMonths: months, message: message.trim() });
-      Alert.alert(booking.status === 'accepted' ? 'Booking confirmed' : 'Request sent', booking.status === 'accepted' ? 'The owner has been notified. Their phone number is now on the listing.' : 'The owner usually replies within 24 hours.', [{ text: 'View my trips', onPress: () => nav.replace('Trips') }]);
+      Alert.alert(booking.status === 'accepted' ? 'Booking confirmed' : 'Request sent', booking.status === 'accepted' ? 'The owner has been notified. Message them on Drisya to arrange your move-in.' : 'The owner usually replies within 24 hours.', [{ text: 'View my trips', onPress: () => nav.replace('Trips') }]);
     } catch (e: any) {
       setError(e.message);
     } finally {

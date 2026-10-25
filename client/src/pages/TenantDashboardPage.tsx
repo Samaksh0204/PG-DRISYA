@@ -84,7 +84,7 @@ export function TenantDashboardPage() {
               {bookings.map((b) => (
                 <Row key={b._id} property={b.propertyId} onOpen={() => b.propertyId && navigate(`/listing/${b.propertyId._id}`)}
                   meta={<>Move-in {formatDay(b.moveInDate)} · {b.durationMonths} month{b.durationMonths > 1 ? 's' : ''} · {formatINR(b.monthlyRent)}/mo + {formatINR(b.deposit)} deposit</>}
-                  note={b.statusReason ? `Note: ${b.statusReason}` : b.status === 'pending' ? 'Waiting for the owner to respond.' : b.status === 'accepted' ? "Confirmed. The owner's phone number is now visible on the listing." : ''}
+                  note={b.statusReason ? `Note: ${b.statusReason}` : b.status === 'pending' ? 'Waiting for the owner to respond.' : b.status === 'accepted' ? 'Confirmed. Message the owner on Drisya to arrange your move-in.' : ''}
                   status={b.status}
                   actions={<>
                     {b.propertyId && ['accepted', 'completed'].includes(b.status) && <button onClick={() => navigate(`/listing/${b.propertyId!._id}?action=review`)} className="btn-outline text-xs"><Star className="h-3.5 w-3.5" /> Review</button>}

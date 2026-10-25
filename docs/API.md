@@ -20,7 +20,7 @@ The website (`client/`) and the mobile app (`mobile/`) talk to the same Express 
 
 | Data | Who can see it |
 |---|---|
-| Host phone number | The host, admins, and tenants with a confirmed visit or accepted booking with that host |
+| Host phone number | Never sent to tenants, before or after a booking. Tenants contact hosts only through in-app messages. (The host sees their own number in their profile; admins see it in moderation.) |
 | Tenant phone number (on a host's request list) | The host, once that visit is confirmed or that booking accepted |
 | Email addresses | Only the account owner (and admins) |
 | Exact map position (`lat`/`lng`) | The listing's owner, admins, and tenants with a confirmed visit or accepted booking at that listing. Everyone else gets it rounded to roughly 1 km; `exactLocation` says which one you got. |

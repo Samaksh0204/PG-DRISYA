@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, MapPin, Share2, Heart, ShieldCheck, Crown, Calendar, MessageCircle, Phone, ArrowLeft,
+  ChevronLeft, ChevronRight, MapPin, Share2, Heart, ShieldCheck, Crown, Calendar, MessageCircle, ArrowLeft,
   CheckCircle2, Camera, AlertCircle, Zap, ListChecks, BedDouble, Users, Wallet, CalendarCheck, Star,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -260,11 +260,7 @@ export function ListingDetailPage() {
                 <div className="card space-y-3 p-6">
                   <button onClick={() => requireLogin(() => setModal('visit'))} className="btn-outline w-full"><Calendar className="h-4 w-4" /> Book a visit</button>
                   <button onClick={() => requireLogin(() => setModal('message'))} className="btn-outline w-full"><MessageCircle className="h-4 w-4" /> Message owner</button>
-                  {owner?.phone ? (
-                    <a href={`tel:${owner.phone}`} className="btn-outline w-full"><Phone className="h-4 w-4" /> Call {owner.phone}</a>
-                  ) : (
-                    <p className="text-center text-xs text-ink-500">The owner's phone number is shown after a confirmed visit or booking.</p>
-                  )}
+                  <p className="text-center text-xs text-ink-500">Host phone numbers are never shared. Talk to the host here in Drisya messages, so there's a record if anything goes wrong.</p>
                 </div>
               )}
 

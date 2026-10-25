@@ -34,7 +34,7 @@ function ownerProperty(p) {
 }
 
 // Contact details of the other party are shared only once a visit is confirmed or a
-// booking accepted (same rule the listing page uses for the owner's phone).
+// booking accepted. Host numbers are never shared with tenants (in-app messages only).
 function personForCounterparty(person, revealContact) {
   if (!person || typeof person !== 'object' || !person._id) return person;
   const doc = typeof person.toObject === 'function' ? person.toObject() : person;

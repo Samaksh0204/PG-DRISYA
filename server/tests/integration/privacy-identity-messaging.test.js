@@ -49,7 +49,9 @@ describe('listing and host privacy', () => {
     const tenantView = (await api().get(`/api/properties/${p._id}`).set(tenant.auth)).body;
     expect(tenantView.property.lat).toBe(EXACT.lat);
     expect(tenantView.property.exactLocation).toBe(true);
-    expect(tenantView.owner.phone).toBe(owner.user.phone);
+    // Exact location yes, host phone never.
+    expect(tenantView.owner.phone).toBeUndefined();
+    expect(JSON.stringify(tenantView)).not.toContain(owner.user.phone);
   });
 
   test('public profiles and wishlists use the public listing shape', async () => {

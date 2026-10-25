@@ -39,7 +39,7 @@ export interface Owner {
   id: string;
   name: string;
   avatar: string;
-  phone?: string;
+  // No phone: host numbers are never sent to tenants (contact is in-app messages only).
   joinedYear: number;
   verified: boolean;
   identityVerified?: boolean;

@@ -38,7 +38,7 @@ function Trust() {
     ['search-outline', 'Every new listing is reviewed', 'Our team checks each listing before it goes live and rejects ones with missing or misleading information.'],
     ['shield-checkmark-outline', 'Verified badge = inspected', 'Only listings our team has inspected in person get the Verified badge. Hosts cannot add it themselves.'],
     ['star-outline', 'Reviews you can trust', 'Only tenants with a completed visit or a stay can review, one review per person per PG. Hosts can reply publicly.'],
-    ['call-outline', 'Contact details stay private', 'Phone numbers are shared only after a visit is confirmed or a booking accepted. Email addresses are never shown.'],
+    ['call-outline', 'Contact details stay private', 'Host phone numbers and email addresses are never shown. Tenants and hosts talk through Drisya messages, so there is always a record.'],
     ['mail-outline', 'Confirmed emails', 'Tenants must confirm their email before sending a booking request.'],
     ['lock-closed-outline', 'Account security', 'Passwords are hashed, logins are rate-limited, and changing your password signs you out everywhere else.'],
   ];
@@ -106,7 +106,7 @@ function Pricing() {
 const FAQ: [string, string][] = [
   ['Does Drisya charge brokerage?', 'No. Drisya does not charge tenants or hosts any fee at the moment. You pay rent and deposit directly to the host at move-in.'],
   ['How does booking work?', 'Pick a move-in date and length of stay and send a request. The host accepts or declines, usually within 24 hours. PGs with Instant Book are confirmed immediately while rooms are free. Nothing is charged online.'],
-  ["When can I see the owner's phone number?", 'After the host confirms your visit or accepts your booking. Until then, use Drisya messages.'],
+  ["Can I get the owner's phone number?", 'No. To keep everyone safe, host phone numbers are never shown. Message the host on Drisya — before and after your visit or booking — so there is always a record.'],
   ['Who can write reviews?', 'Only tenants whose visit was marked completed, or who stayed there through a booking. Reviews from stays are labelled "Stayed here".'],
   ['What does "Verified" mean?', 'Our team physically inspected the property. Every new listing is also reviewed online before it goes live.'],
   ['How do I cancel?', 'Open Profile → My bookings & visits and choose Cancel. The other person is notified straight away.'],
@@ -157,7 +157,7 @@ function Legal() {
       <Text style={s.lead}>The short version — the full documents are on our website.</Text>
       {([
         ['person-outline', 'What we collect', 'Your account details, the listings, messages, visits, bookings and reviews you create, and basic technical logs to keep the service secure.'],
-        ['eye-outline', 'Who sees what', 'Your name and profile photo are public. Your phone number is shared with a host or tenant only after a visit is confirmed or a booking accepted. Email addresses are never shown.'],
+        ['eye-outline', 'Who sees what', 'Your name and profile photo are public. Host phone numbers are never shown. A tenant\'s number is shared with the host only after a visit is confirmed or a booking accepted. Email addresses are never shown.'],
         ['cash-outline', 'Payments', 'Drisya does not take payments. Rent and deposit are paid directly to the host at move-in against a written agreement.'],
         ['download-outline', 'Your data', 'Download a copy of your data or delete your account at any time from Account settings.'],
         ['flag-outline', 'Fair use', 'Listings must be real and accurate. Harassment, discrimination and scams lead to removal and account suspension.'],

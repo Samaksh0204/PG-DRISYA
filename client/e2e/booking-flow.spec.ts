@@ -5,7 +5,7 @@ test.beforeAll(reseed);
 
 const LISTING = 'Green Valley Co-ed Hostel'; // request-to-book (not instant), owner Anjali
 
-test('tenant ↔ owner: wishlist, visit, booking request, message, accept, contact revealed', async ({ page }) => {
+test('tenant ↔ owner: wishlist, visit, booking request, message, accept, host phone stays private', async ({ page }) => {
   // ── Tenant ──
   await login(page, TENANT);
   await openListing(page, LISTING);
@@ -68,7 +68,9 @@ test('tenant ↔ owner: wishlist, visit, booking request, message, accept, conta
   await page.goto('/#/dashboard?tab=trips');
   await expect(page.getByText('accepted', { exact: true })).toBeVisible();
   await openListing(page, LISTING);
-  await expect(page.getByRole('link', { name: /Call 9876543212/ })).toBeVisible();
+  // Even with an accepted booking the host's number is never shown — chat only.
+  await expect(page.getByText('9876543212')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Message owner' })).toBeVisible();
 });
 
 test('instant book confirms immediately and tenant can cancel with a reason', async ({ page }) => {

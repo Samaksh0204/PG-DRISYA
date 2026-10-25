@@ -61,14 +61,15 @@ describe('mobile api client', () => {
   test('listing detail maps owner (no email) and viewer info', async () => {
     fetchMock.mockImplementation(() => json(200, {
       property: { _id: 'p1', title: 'T', price: 5000, roomsAvailable: 0 },
-      owner: { id: 'o1', fullName: 'Owner', createdAt: '2025-01-01' },
+      // Even if a phone ever arrived, the app must not keep it for display.
+      owner: { id: 'o1', fullName: 'Owner', createdAt: '2025-01-01', phone: '9876543212' },
       reviews: [{ id: 'r1', rating: 5 }],
       viewer: { isOwner: false, canReview: true, hasReviewed: false, hasStayed: false },
     }));
     const d = await fetchListingDetail('p1');
     expect(d.property.roomsAvailable).toBe(0);
     expect(d.owner).toMatchObject({ id: 'o1', name: 'Owner', joinedYear: 2025 });
-    expect(d.owner?.phone).toBeUndefined();
+    expect(JSON.stringify(d.owner)).not.toContain('9876543212');
     expect(d.reviews[0].author).toBe('Former member');
     expect(d.viewer?.canReview).toBe(true);
   });
