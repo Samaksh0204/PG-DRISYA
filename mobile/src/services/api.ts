@@ -204,7 +204,6 @@ export async function fetchListingDetail(id: string): Promise<{ property: Proper
       id: o.id,
       name: o.fullName || 'Property owner',
       avatar: o.avatar || avatarFor(o.fullName),
-      phone: o.phone,
       joinedYear: o.createdAt ? new Date(o.createdAt).getFullYear() : new Date().getFullYear(),
       verified: !!o.verified,
       identityVerified: !!o.identityVerified,

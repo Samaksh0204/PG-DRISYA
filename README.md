@@ -14,7 +14,7 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)** to go live, **[docs/API.md](docs/API.md)*
 
 **Tenants:** free-text and map search, filters (rent, gender, room type, amenities, Verified, Instant Book), wishlist, listing pages with house rules, approximate-location map and price breakdown, visit booking, request-to-book / Instant Book, cancellations, in-app messaging, notifications, reviews with category ratings (only after a completed visit or stay), host profiles, reporting.
 
-**Hosts:** "become a host" from any account, 4-step listing form (photos, rules, rooms, map pin, Instant Book), moderation status and feedback, pause/resume/delete, booking-request inbox (accept/decline with reason, mark moved in), visit requests, public replies to reviews. Phone numbers are exchanged only after a confirmed visit or accepted booking.
+**Hosts:** "become a host" from any account, 4-step listing form (photos, rules, rooms, map pin, Instant Book), moderation status and feedback, pause/resume/delete, booking-request inbox (accept/decline with reason, mark moved in), visit requests, public replies to reviews. Host phone numbers are never shown to tenants: all tenant–host contact happens in in-app messages. A tenant's number is shared with the host only after a confirmed visit or accepted booking.
 
 **Identity verification:** Aadhaar verification through an authorised provider's own pages (server-side session plus a signed webhook), with an "ID verified" badge once the provider confirms it. Shows "unavailable" until a provider is configured (see `IDV_*` in `server/.env.example`). Aadhaar numbers, OTPs and documents are never collected or stored.
 

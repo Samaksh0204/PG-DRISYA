@@ -9,7 +9,7 @@ export function TrustSafetyPage() {
     { icon: Search, title: 'Every new listing is reviewed', desc: 'Our team checks each listing before it goes live and rejects ones with missing or misleading information.' },
     { icon: ShieldCheck, title: 'Verified badge = inspected', desc: 'Only listings our team has inspected in person get the Verified badge. Hosts cannot add it themselves.' },
     { icon: Star, title: 'Reviews you can trust', desc: 'Only tenants with a completed visit or a stay can review, one review per person per PG. Hosts can reply publicly.' },
-    { icon: Phone, title: 'Contact details stay private', desc: "Phone numbers are shared only after a visit is confirmed or a booking accepted. Email addresses are never shown." },
+    { icon: Phone, title: 'Contact details stay private', desc: 'Host phone numbers and email addresses are never shown. Tenants and hosts talk through Drisya messages, so there is always a record.' },
     { icon: UserCheck, title: 'Confirmed emails', desc: 'Tenants must confirm their email before sending a booking request.' },
     { icon: Lock, title: 'Account security', desc: 'Passwords are hashed, logins are rate-limited, and changing your password signs you out everywhere else.' },
   ];

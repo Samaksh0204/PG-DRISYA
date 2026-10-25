@@ -11,7 +11,7 @@ const AppError = require('../utils/AppError');
 const { escapeRegex, pick, isObjectId, isISODate, parsePagination } = require('../utils/validators');
 const { flags } = require('../config/env');
 const { ownerReviewStats } = require('../services/ratings');
-const { canSeeOwnerContact, canReviewProperty, hasStayed, canSeeExactLocation } = require('../services/relationships');
+const { canReviewProperty, hasStayed, canSeeExactLocation } = require('../services/relationships');
 
 const router = express.Router();
 
@@ -175,7 +175,7 @@ router.get(
     let ownerProfile = null;
     if (owner) {
       ownerProfile = { ...owner.toPublicProfile(), listingCount: ownerListingCount, ...stats };
-      if (await canSeeOwnerContact(viewer, owner._id)) ownerProfile.phone = owner.phone;
+      // Host phone numbers are never sent to tenants: all contact goes through in-app messages.
     }
 
     let viewerInfo = null;

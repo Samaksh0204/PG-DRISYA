@@ -50,7 +50,7 @@ test('listing page: rules, price breakdown, reviews, contact hidden for guests',
   await expect(page.getByText('₹23,500')).toBeVisible(); // 8,500 + 15,000
   await expect(page.getByRole('button', { name: /Book instantly/ })).toBeVisible();
   await expect(page.getByText('Stayed here').first()).toBeVisible();
-  await expect(page.getByText(/phone number is shown after a confirmed visit/)).toBeVisible();
+  await expect(page.getByText(/Host phone numbers are never shared/)).toBeVisible();
   await expect(page.getByText('9876543212')).toHaveCount(0);
 
   // Guest actions lead to login

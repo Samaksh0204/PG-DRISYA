@@ -117,7 +117,7 @@ function ProfileSection() {
           <textarea className="input mt-1 min-h-[80px] w-full resize-none" maxLength={1000} value={form.bio} onChange={(e) => set('bio', e.target.value)} />
         </label>
       </div>
-      <p className="mt-2 text-xs text-ink-500">Your phone number is only shared with an owner/tenant after a visit or booking is confirmed.</p>
+      <p className="mt-2 text-xs text-ink-500">Hosts: your number is never shown to tenants. Tenants: your number is shared with a host only after they confirm your visit or accept your booking.</p>
       <div className="mt-4"><ErrorText>{error}</ErrorText></div>
       <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save profile'}</button>
     </Card>

@@ -279,7 +279,7 @@ export function ListingDetailScreen() {
                     onPress={() => requireLogin(() => nav.navigate('BookVisit', { propertyId: property.id, title: property.title }))} />
                 </View>
               )}
-              {!viewer?.isOwner && !owner.phone && <Text style={[styles.small, { textAlign: 'center', marginTop: spacing.sm }]}>The owner's phone number is shown after a confirmed visit or booking.</Text>}
+              {!viewer?.isOwner && <Text style={[styles.small, { textAlign: 'center', marginTop: spacing.sm }]}>Host phone numbers are never shared. Talk to the host here in Drisya messages, so there's a record if anything goes wrong.</Text>}
             </View>
           )}
 
@@ -350,9 +350,9 @@ export function ListingDetailScreen() {
           <Button title="Edit listing" icon="create-outline" onPress={() => nav.navigate('AddListing', { editId: property.id })} />
         ) : (
           <>
-            {owner?.phone ? (
-              <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${owner.phone}`)} accessibilityLabel="Call owner">
-                <Icon name="call" size={20} color={colors.ink[900]} />
+            {owner ? (
+              <TouchableOpacity style={styles.callBtn} onPress={() => requireLogin(() => nav.navigate('Chat', { participantId: owner.id, participantName: owner.name, propertyId: property.id, propertyTitle: property.title }))} accessibilityLabel="Message owner">
+                <Icon name="chatbubbles-outline" size={20} color={colors.ink[900]} />
               </TouchableOpacity>
             ) : null}
             <Button

@@ -132,7 +132,9 @@ describe('detail page', () => {
 
     await Visit.create({ propertyId: p._id, tenantId: tenant.user._id, ownerId: owner.user._id, date: dateIn(1), timeSlot: '10:00 AM', status: 'confirmed' });
     const after = await api().get(`/api/properties/${p._id}`).set(tenant.auth);
-    expect(after.body.owner.phone).toBe(owner.user.phone);
+    // Host numbers are never shared, even after a confirmed visit.
+    expect(after.body.owner.phone).toBeUndefined();
+    expect(JSON.stringify(after.body)).not.toContain(owner.user.phone);
   });
 });
 
