@@ -48,6 +48,24 @@ export function apiUrlProblem(url: string | undefined, isDev: boolean): string |
   return null;
 }
 
+// In development the phone loads the app from Expo running on your computer, so the
+// address it used for that is the one your computer has *right now*. A LAN address
+// written in .env goes stale whenever the computer joins another Wi-Fi network, so in
+// development we swap a local/private host for the Expo host (same port and path).
+// Release builds always use the configured URL unchanged.
+const LOCAL_HOST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
+export function resolveDevUrl(configured: string | undefined, expoHostUri: string | undefined | null, isDev: boolean, fallbackPort = 5000, fallbackPath = '/api'): string | undefined {
+  if (!isDev || !expoHostUri) return configured;
+  const host = expoHostUri.split('/')[0].split(':')[0];
+  // Tunnels (*.exp.direct) can't reach your API port — keep whatever is configured.
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(host) && host !== 'localhost') return configured;
+  if (!configured) return `http://${host}:${fallbackPort}${fallbackPath}`;
+  const m = configured.match(/^(https?:\/\/)([^/:]+)(:\d+)?(.*)$/);
+  if (!m || !LOCAL_HOST.test(m[2])) return configured; // a real domain: leave it alone
+  return `${m[1]}${host}${m[3] || ''}${m[4]}`;
+}
+
 export const STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
