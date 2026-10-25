@@ -40,7 +40,8 @@ const flags = {
   // New listings wait for admin approval unless explicitly turned off.
   moderationEnabled: () => process.env.LISTING_MODERATION !== 'false',
   // Simulated Aadhaar checks are OFF unless explicitly enabled (dev/demo only).
-  aadhaarSimulation: () => process.env.AADHAAR_SIMULATION === 'true',
+  // Never in production, whatever the env var says.
+  aadhaarSimulation: () => process.env.AADHAAR_SIMULATION === 'true' && process.env.NODE_ENV !== 'production',
   isTest: () => process.env.NODE_ENV === 'test',
   isProd: () => process.env.NODE_ENV === 'production',
 };

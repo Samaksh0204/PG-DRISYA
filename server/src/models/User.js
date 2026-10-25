@@ -40,7 +40,13 @@ const userSchema = new mongoose.Schema(
     suspended: { type: Boolean, default: false },
     suspendedReason: { type: String, default: '' },
 
-    // Aadhaar (simulated, only if AADHAAR_SIMULATION=true). Raw number never stored.
+    // Identity verification through an authorised provider (routes/identity.js).
+    // Set only by the provider's signed webhook or an admin review — never by the user.
+    identityStatus: { type: String, enum: ['unverified', 'pending', 'verified', 'rejected'], default: 'unverified' },
+    identityVerifiedAt: { type: Date },
+    identityProvider: { type: String, default: '', maxlength: 40 },
+
+    // Legacy dev-only Aadhaar simulation (AADHAAR_SIMULATION=true, never in production). Raw number never stored.
     aadhaarHash: { type: String, default: '', select: false },
     aadhaarLast4: { type: String, default: '' },
     aadhaarVerified: { type: Boolean, default: false },
@@ -77,9 +83,10 @@ userSchema.methods.toProfile = function () {
     subscriptionTier: this.subscriptionTier,
     responseRate: this.responseRate,
     responseTime: this.responseTime,
-    aadhaarVerified: this.aadhaarVerified,
-    aadhaarLast4: this.aadhaarLast4,
-    aadhaarVerificationMode: this.aadhaarVerificationMode,
+    identityStatus: this.identityStatus || 'unverified',
+    identityVerifiedAt: this.identityVerifiedAt || null,
+    // Kept for older app versions: true only for a real (provider/admin) verification.
+    aadhaarVerified: this.identityStatus === 'verified',
     createdAt: this.createdAt,
   };
 };
@@ -94,6 +101,7 @@ userSchema.methods.toPublicProfile = function () {
     city: this.city,
     bio: this.bio,
     verified: this.verified,
+    identityVerified: this.identityStatus === 'verified',
     responseRate: this.responseRate,
     responseTime: this.responseTime,
     createdAt: this.createdAt,

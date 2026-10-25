@@ -11,6 +11,8 @@ const { sendMail } = require('../utils/mailer');
 const { appUrl } = require('../config/env');
 const { isObjectId, isISODate, daysFromToday } = require('../utils/validators');
 
+const { personForCounterparty } = require('../utils/serializers');
+
 const router = express.Router();
 const MAX_DAYS_AHEAD = 180;
 
@@ -121,7 +123,14 @@ router.get(
       .populate('tenantId', 'fullName avatar phone emailVerified')
       .sort({ createdAt: -1 })
       .limit(200);
-    res.json({ bookings });
+    // The tenant's phone is shared with the host only once the booking is accepted.
+    res.json({
+      bookings: bookings.map((b) => {
+        const o = b.toObject();
+        o.tenantId = personForCounterparty(o.tenantId, ['accepted', 'completed'].includes(b.status));
+        return o;
+      }),
+    });
   })
 );
 

@@ -7,12 +7,15 @@ const AppError = require('../utils/AppError');
 const { isObjectId } = require('../utils/validators');
 const { ownerReviewStats } = require('../services/ratings');
 const { serializeReview } = require('./properties');
+const { publicProperty } = require('../utils/serializers');
+const { profileLimiter } = require('../middleware/rateLimiters');
 
 const router = express.Router();
 
 // GET /api/users/:id — public host/tenant profile (no email or phone)
 router.get(
   '/:id',
+  profileLimiter,
   asyncHandler(async (req, res) => {
     if (!isObjectId(req.params.id)) throw new AppError('Invalid user ID', 400);
     const user = await User.findById(req.params.id);
@@ -30,7 +33,7 @@ router.get(
 
     res.json({
       user: { ...user.toPublicProfile(), ...stats, listingCount: listings.length },
-      listings,
+      listings: listings.map((l) => publicProperty(l)),
       reviews: reviews.map((r) => ({ ...serializeReview(r), propertyId: r.propertyId, propertyTitle: titles.get(r.propertyId.toString()) })),
     });
   })

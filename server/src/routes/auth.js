@@ -19,6 +19,8 @@ const { isPlausibleAadhaar, hashAadhaar } = require('../utils/aadhaar');
 const { flags, appUrl } = require('../config/env');
 const { deleteAccount } = require('../services/accountDeletion');
 
+const { audit } = require('../utils/audit');
+
 const router = express.Router();
 const BCRYPT_ROUNDS = process.env.NODE_ENV === 'test' ? 4 : 10;
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -145,6 +147,7 @@ router.post(
       subject: 'Your PG Drisya password was changed',
       text: `Hi ${user.fullName},\n\nYour password was just changed. If this wasn't you, reset your password immediately and contact support.`,
     });
+    await audit(req, 'auth.password_changed', { targetType: 'user', targetId: user._id });
     res.json({ message: 'Password updated', token: signAuthToken(user) });
   })
 );
@@ -195,6 +198,7 @@ router.post(
     // Clicking a link sent to the inbox proves ownership of the email.
     user.emailVerified = true;
     await user.save();
+    await audit(req, 'auth.password_reset', { actorId: user._id, targetType: 'user', targetId: user._id });
     res.json({ message: 'Password has been reset. You can now log in.' });
   })
 );
@@ -290,6 +294,7 @@ router.delete(
     }
     const email = user.email;
     const name = user.fullName;
+    await audit(req, 'auth.account_deleted', { targetType: 'user', targetId: user._id });
     await deleteAccount(user._id);
     await sendMail({
       to: email,
@@ -323,7 +328,8 @@ router.post(
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { aadhaarHash, aadhaarLast4: aadhaarNumber.slice(-4), aadhaarVerified: true, aadhaarVerificationMode: 'simulated' },
+      // Development-only demo; flags.aadhaarSimulation() is always false in production.
+      { aadhaarHash, aadhaarLast4: aadhaarNumber.slice(-4), aadhaarVerified: true, aadhaarVerificationMode: 'simulated', identityStatus: 'verified', identityVerifiedAt: new Date(), identityProvider: 'simulation' },
       { new: true }
     );
     res.json({ verified: true, simulated: true, user: user.toProfile() });

@@ -26,4 +26,16 @@ async function canSeeOwnerContact(viewer, ownerId) {
   return !!(visit || booking);
 }
 
-module.exports = { hasStayed, canReviewProperty, canSeeOwnerContact };
+// Exact map position of a listing: only for tenants whose visit to THIS property is
+// confirmed, or whose booking here is accepted. Everyone else sees a ~1 km area.
+async function canSeeExactLocation(viewer, propertyId) {
+  if (!viewer) return false;
+  if (viewer.role === 'admin') return true;
+  const [visit, booking] = await Promise.all([
+    Visit.exists({ tenantId: viewer._id, propertyId, status: { $in: ['confirmed', 'completed'] } }),
+    Booking.exists({ tenantId: viewer._id, propertyId, status: { $in: ['accepted', 'completed'] } }),
+  ]);
+  return !!(visit || booking);
+}
+
+module.exports = { hasStayed, canReviewProperty, canSeeOwnerContact, canSeeExactLocation };

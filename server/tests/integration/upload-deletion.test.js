@@ -32,6 +32,14 @@ test('uploads images into a per-user folder and returns https URLs', async () =>
   expect(res.body.urls[0]).toContain(`pgdrisya/owner/${user._id}`);
 });
 
+test('rejects a non-image disguised with an image content type', async () => {
+  const { auth } = await makeUser('owner');
+  const html = Buffer.from('<script>alert(1)</script>');
+  const res = await api().post('/api/upload').set(auth).attach('images', html, { filename: 'x.png', contentType: 'image/png' });
+  expect(res.status).toBe(400);
+  expect(res.body.message).toMatch(/not a valid image/);
+});
+
 test('avatar upload', async () => {
   const { auth } = await makeUser('tenant');
   const res = await api().post('/api/upload/avatar').set(auth).attach('avatar', PNG, { filename: 'me.png', contentType: 'image/png' });
