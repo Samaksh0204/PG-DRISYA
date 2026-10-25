@@ -1,23 +1,23 @@
-// Forms opened from a listing or profile: forgot password, book a visit,
-// request to book, write a review, report.
-import React, { useState } from 'react';
+// Forms opened from a listing or profile: forgot / reset password, confirm email,
+// book a visit, request to book, write a review, report.
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types';
-import { forgotPassword, scheduleVisit, requestBooking, submitReview, submitReport } from '../services/api';
-import { Button, Chip, ErrorText, Field } from '../components/ui';
+import type { CategoryRatings, RootStackParamList } from '../types';
+import { forgotPassword, resetPassword, verifyEmail, scheduleVisit, requestBooking, submitReview, submitReport } from '../services/api';
+import { Button, Chip, ErrorText, Field, Icon, IconTile, Stars } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
-import { formatDay, formatINR, isEmail, localISODate, moveInCost, upcomingDates } from '../utils/format';
+import { formatDay, formatINR, isEmail, localISODate, moveInCost, passwordProblem, upcomingDates } from '../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 const SLOTS = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'];
 
 function Form({ children }: { children: React.ReactNode }) {
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.white }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.page }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
     </KeyboardAvoidingView>
   );
@@ -34,7 +34,7 @@ export function ForgotPasswordScreen() {
     setError('');
     try {
       const { message } = await forgotPassword(email.trim());
-      Alert.alert('Check your email', `${message} The link opens our website, where you can choose a new password.`, [{ text: 'OK', onPress: () => nav.goBack() }]);
+      Alert.alert('Check your email', `${message} Open the link on this phone, or paste the code from it here.`, [{ text: 'OK', onPress: () => nav.replace('ResetPassword') }]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -43,11 +43,102 @@ export function ForgotPasswordScreen() {
   };
   return (
     <Form>
-      <Text style={s.h1}>Reset your password</Text>
-      <Text style={s.p}>Enter your account email and we'll send you a reset link.</Text>
+      <IconTile name="key-outline" size={56} />
+      <Text style={[s.h1, { marginTop: spacing.lg }]}>Reset your password</Text>
+      <Text style={s.p}>Enter your account email and we'll send you a reset link. It works for one hour.</Text>
       <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
       <ErrorText>{error}</ErrorText>
       <Button title="Send reset link" onPress={submit} loading={busy} />
+      <TouchableOpacity onPress={() => nav.replace('ResetPassword')} style={{ alignSelf: 'center', marginTop: spacing.lg }}>
+        <Text style={s.link}>I already have a reset link</Text>
+      </TouchableOpacity>
+    </Form>
+  );
+}
+
+// The emailed link is ".../#/reset-password?token=…". The app opens it via the
+// pgdrisya://reset-password?token=… deep link, or the user pastes the link/token.
+const tokenFrom = (v: string) => {
+  const m = v.match(/token=([A-Za-z0-9_-]+)/);
+  return (m ? m[1] : v).trim();
+};
+
+export function ResetPasswordScreen() {
+  const nav = useNavigation<Nav>();
+  const { params } = useRoute<RouteProp<RootStackParamList, 'ResetPassword'>>();
+  const [token, setToken] = useState(params?.token || '');
+  const [pw, setPw] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    const t = tokenFrom(token);
+    if (!t) return setError('Paste the link or code from the email');
+    const p = passwordProblem(pw);
+    if (p) return setError(p);
+    setBusy(true);
+    setError('');
+    try {
+      const { message } = await resetPassword(t, pw);
+      Alert.alert('Password changed', message || 'You can now sign in with your new password.', [{ text: 'Sign in', onPress: () => nav.replace('Login') }]);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Form>
+      <IconTile name="lock-closed-outline" size={56} />
+      <Text style={[s.h1, { marginTop: spacing.lg }]}>Choose a new password</Text>
+      <Text style={s.p}>Signing in again is required on all your devices afterwards.</Text>
+      {!params?.token && <Field label="Reset link or code" value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} placeholder="Paste from the email" />}
+      <Field label="New password" value={pw} onChangeText={setPw} secureTextEntry autoComplete="password-new" hint="8+ characters, with letters and numbers" />
+      <ErrorText>{error}</ErrorText>
+      <Button title="Save new password" onPress={submit} loading={busy} disabled={!pw} />
+    </Form>
+  );
+}
+
+export function VerifyEmailScreen() {
+  const nav = useNavigation<Nav>();
+  const { user, setUser } = useAuth();
+  const { params } = useRoute<RouteProp<RootStackParamList, 'VerifyEmail'>>();
+  const [token, setToken] = useState(params?.token || '');
+  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
+  const [error, setError] = useState('');
+  const run = async (raw: string) => {
+    const t = tokenFrom(raw);
+    if (!t) return setError('Paste the link or code from the email');
+    setState('busy');
+    setError('');
+    try {
+      const res = await verifyEmail(t);
+      if (user && res.user) setUser(res.user);
+      setState('done');
+    } catch (e: any) {
+      setError(e.message);
+      setState('idle');
+    }
+  };
+  useEffect(() => { if (params?.token) run(params.token); }, [params?.token]);
+  if (state === 'done') {
+    return (
+      <Form>
+        <IconTile name="checkmark-circle" size={56} />
+        <Text style={[s.h1, { marginTop: spacing.lg }]}>Email confirmed</Text>
+        <Text style={s.p}>You can now send booking requests.</Text>
+        <Button title="Continue" onPress={() => (nav.canGoBack() ? nav.goBack() : nav.replace('MainTabs'))} />
+      </Form>
+    );
+  }
+  return (
+    <Form>
+      <IconTile name="mail-outline" size={56} />
+      <Text style={[s.h1, { marginTop: spacing.lg }]}>Confirm your email</Text>
+      <Text style={s.p}>Open the link we emailed you on this phone, or paste it here.</Text>
+      <Field label="Confirmation link or code" value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} />
+      <ErrorText>{error}</ErrorText>
+      <Button title="Confirm email" onPress={() => run(token)} loading={state === 'busy'} disabled={!token} />
     </Form>
   );
 }
@@ -110,7 +201,7 @@ export function RequestBookingScreen() {
     setError('');
     try {
       const { booking } = await requestBooking({ propertyId: params.propertyId, moveInDate: moveIn, durationMonths: months, message: message.trim() });
-      Alert.alert(booking.status === 'accepted' ? 'Booking confirmed' : 'Request sent', booking.status === 'accepted' ? 'The owner has been notified.' : 'The owner usually replies within 24 hours.', [{ text: 'View my trips', onPress: () => nav.replace('Trips') }]);
+      Alert.alert(booking.status === 'accepted' ? 'Booking confirmed' : 'Request sent', booking.status === 'accepted' ? 'The owner has been notified. Their phone number is now on the listing.' : 'The owner usually replies within 24 hours.', [{ text: 'View my trips', onPress: () => nav.replace('Trips') }]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -121,7 +212,12 @@ export function RequestBookingScreen() {
     <Form>
       <Text style={s.h1}>{params.instantBook ? 'Book instantly' : 'Request to book'}</Text>
       <Text style={s.p}>{params.title}</Text>
-      {!user?.emailVerified && <ErrorText>Confirm your email first — check your inbox, or resend from Account settings.</ErrorText>}
+      {!user?.emailVerified && (
+        <TouchableOpacity onPress={() => nav.navigate('VerifyEmail')} style={s.warn}>
+          <Icon name="mail-outline" size={18} color={colors.amber[700]} />
+          <Text style={s.warnText}>Confirm your email first — tap to paste the link we sent, or resend it from Account settings.</Text>
+        </TouchableOpacity>
+      )}
       <Text style={s.label}>Move-in date</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
         {dates.map((d) => <Chip key={d} label={d === today ? 'Today' : formatDay(d)} active={moveIn === d} onPress={() => setMoveIn(d)} />)}
@@ -154,6 +250,7 @@ export function WriteReviewScreen() {
   const nav = useNavigation<Nav>();
   const { params } = useRoute<RouteProp<RootStackParamList, 'WriteReview'>>();
   const [rating, setRating] = useState(0);
+  const [cats, setCats] = useState<CategoryRatings>({});
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -162,7 +259,7 @@ export function WriteReviewScreen() {
     setBusy(true);
     setError('');
     try {
-      await submitReview({ propertyId: params.propertyId, rating, text: text.trim() });
+      await submitReview({ propertyId: params.propertyId, rating, text: text.trim(), ratings: cats });
       Alert.alert('Thanks!', 'Your review has been posted.', [{ text: 'OK', onPress: () => nav.goBack() }]);
     } catch (e: any) {
       setError(e.message);
@@ -174,11 +271,15 @@ export function WriteReviewScreen() {
     <Form>
       <Text style={s.h1}>Review</Text>
       <Text style={s.p}>{params.title}</Text>
-      <View style={[s.wrap, { marginBottom: spacing.lg }]}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <TouchableOpacity key={n} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`} onPress={() => setRating(n)}>
-            <Text style={{ fontSize: 36, color: n <= rating ? colors.amber[400] : colors.ink[200] }}>★</Text>
-          </TouchableOpacity>
+      <Text style={s.label}>Overall</Text>
+      <View style={{ marginBottom: spacing.lg }}><Stars value={rating} size={36} onChange={setRating} /></View>
+      <View style={s.box}>
+        <Text style={[s.label, { marginBottom: spacing.sm }]}>Rate the details (optional)</Text>
+        {([['cleanliness', 'Cleanliness'], ['accuracy', 'Accuracy'], ['safety', 'Safety'], ['food', 'Food'], ['value', 'Value']] as [keyof CategoryRatings, string][]).map(([k, l]) => (
+          <View key={k} style={s.catRow}>
+            <Text style={s.rowText}>{l}</Text>
+            <Stars value={cats[k] || 0} size={22} onChange={(n) => setCats((c) => ({ ...c, [k]: n }))} />
+          </View>
         ))}
       </View>
       <Field label="Your review" value={text} onChangeText={setText} multiline maxLength={2000} placeholder="Food, cleanliness, safety, owner…" />
@@ -226,7 +327,8 @@ export function ReportScreen() {
       <Text style={s.p}>{params.label}</Text>
       {REASONS.map(([value, label]) => (
         <TouchableOpacity key={value} accessibilityRole="radio" accessibilityState={{ checked: reason === value }} onPress={() => setReason(value)} style={[s.option, reason === value && s.optionActive]}>
-          <Text style={{ color: colors.ink[900] }}>{label}</Text>
+          <Icon name={reason === value ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={reason === value ? colors.brand[500] : colors.ink[300]} />
+          <Text style={{ color: colors.ink[900], fontSize: 15 }}>{label}</Text>
         </TouchableOpacity>
       ))}
       <Field label="Details (optional)" value={details} onChangeText={setDetails} multiline maxLength={1000} />
@@ -241,10 +343,14 @@ const s = StyleSheet.create({
   p: { fontSize: 14, color: colors.ink[500], marginTop: 4, marginBottom: spacing.xl },
   label: { fontSize: 13, fontWeight: '600', color: colors.ink[700], marginBottom: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
-  box: { backgroundColor: colors.ink[50], borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.md },
+  box: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   rowText: { fontSize: 14, color: colors.ink[600] },
   small: { fontSize: 12, color: colors.ink[500], marginTop: 4 },
-  option: { borderWidth: 1, borderColor: colors.ink[100], borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
-  optionActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  option: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1, borderColor: colors.ink[200], backgroundColor: colors.white, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
+  optionActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
+  link: { fontSize: 14, fontWeight: '700', color: colors.brand[700] },
+  catRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  warn: { flexDirection: 'row', gap: 8, backgroundColor: colors.amber[50], borderWidth: 1, borderColor: colors.amber[100], borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md },
+  warnText: { flex: 1, fontSize: 13, color: colors.amber[700], lineHeight: 18 },
 });

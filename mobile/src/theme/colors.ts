@@ -1,53 +1,68 @@
+// Design tokens — kept identical to the website (client/src/index.css):
+// Deep Navy + White + Teal. Change colours here only.
+const brand = {
+  50: '#E6F7F5',
+  100: '#CCF1EC',
+  200: '#99E4DA',
+  300: '#5ED6C7',
+  400: '#2DC4B3',
+  500: '#14B8A6', // primary action
+  600: '#0F9488', // pressed / hover
+  700: '#0F766E',
+  800: '#115E59',
+  900: '#134E4A',
+  950: '#042F2E',
+} as const;
+
+// Navy-slate neutrals. 50 = page bg · 200 = borders · 500 = muted text
+// 700 = body text · 900 = deep navy (headings, hero)
+const ink = {
+  50: '#F4F7FA',
+  100: '#EAEFF5',
+  200: '#E2E8F0',
+  300: '#CBD5E1',
+  400: '#6B7A90',
+  500: '#64748B',
+  600: '#475569',
+  700: '#243447',
+  800: '#1B3854',
+  900: '#102A43',
+  950: '#0A1C2E',
+} as const;
+
 export const colors = {
-  coral: {
-    50: '#fff1f0',
-    100: '#ffe0de',
-    200: '#ffc7c2',
-    300: '#ffa39b',
-    400: '#ff7468',
-    500: '#ff4d3d',
-    600: '#ed2e1c',
-    700: '#c81f10',
-    800: '#a51c12',
-    900: '#871e16',
-  },
-  teal: {
-    50: '#f0fdfa',
-    100: '#ccfbf1',
-    200: '#99f6e4',
-    300: '#5eead4',
-    400: '#2dd4bf',
-    500: '#14b8a6',
-    600: '#0d9488',
-    700: '#0f766e',
-    800: '#115e59',
-    900: '#134e4a',
-  },
-  ink: {
-    50: '#f6f6f5',
-    100: '#e7e7e4',
-    200: '#d3d3cc',
-    300: '#b5b5aa',
-    400: '#8f8f80',
-    500: '#717161',
-    600: '#5a5a4d',
-    700: '#4a4a40',
-    800: '#3d3d36',
-    900: '#2a2a25',
-    950: '#1a1a16',
-  },
-  white: '#ffffff',
+  brand,
+  // The website aliases teal to the brand scale too.
+  teal: brand,
+  ink,
+  page: ink[50],
+  surface: '#FFFFFF',
+  success: '#15803D',
+  warning: '#F59E0B',
+  danger: '#DC2626',
+  white: '#FFFFFF',
   black: '#000000',
   amber: {
-    100: '#fef3c7',
-    400: '#fbbf24',
-    500: '#f59e0b',
-    600: '#d97706',
-    700: '#b45309',
+    50: '#FFFBEB',
+    100: '#FEF3C7',
+    400: '#FBBF24',
+    500: '#F59E0B',
+    600: '#D97706',
+    700: '#B45309',
   },
   red: {
-    50: '#fef2f2',
-    500: '#ef4444',
-    700: '#b91c1c',
+    50: '#FEF2F2',
+    100: '#FEE2E2',
+    500: '#DC2626',
+    700: '#B91C1C',
   },
+  green: {
+    50: '#F0FDF4',
+    100: '#DCFCE7',
+    700: '#15803D',
+  },
+  overlay: 'rgba(10, 28, 46, 0.55)',
 } as const;
+
+// ui-avatars background (hex without #) — matches the server's default avatar.
+export const AVATAR_BG = '102A43';

@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { Booking, PersonSummary, RootStackParamList, Visit } from '../types';
 import { fetchMyBookings, fetchMyVisits, fetchOwnerBookings, fetchOwnerVisits, updateBookingStatus, updateVisitStatus } from '../services/api';
-import { Button, Chip, Empty, StatusPill } from '../components/ui';
+import { Button, Empty, Segmented, StatusPill, Icon } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
 import { formatDay, formatINR, localISODate } from '../utils/format';
@@ -41,13 +41,13 @@ export function TripsScreen() {
 
   return (
     <View style={s.container}>
-      <View style={s.tabs}><Chip label="Bookings" active={tab === 'booking'} onPress={() => setTab('booking')} /><Chip label="Visits" active={tab === 'visit'} onPress={() => setTab('visit')} /></View>
+      <View style={s.tabs}><Segmented value={tab} onChange={setTab} options={[{ value: 'booking', label: 'Bookings' }, { value: 'visit', label: 'Visits' }]} /></View>
       <FlatList
         data={shown}
         keyExtractor={(i) => (i.kind === 'booking' ? i.b._id : i.v._id)}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-        contentContainerStyle={{ padding: spacing.lg }}
-        ListEmptyComponent={loading ? null : <Empty icon={tab === 'booking' ? '🧳' : '📅'} title={tab === 'booking' ? 'No bookings yet' : 'No visits yet'} desc="Find a PG and request to book or book a visit." />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand[500]} colors={[colors.brand[500]]} />}
+        contentContainerStyle={{ padding: spacing.lg, flexGrow: 1 }}
+        ListEmptyComponent={loading ? undefined : <Empty icon={tab === 'booking' ? 'key-outline' : 'calendar-outline'} title={tab === 'booking' ? 'No bookings yet' : 'No visits yet'} desc="Find a PG and request to book or book a visit."><Button title="Find a PG" onPress={() => nav.navigate('MainTabs', { screen: 'Search' })} /></Empty>}
         renderItem={({ item }) => {
           if (item.kind === 'booking') {
             const b = item.b;
@@ -84,13 +84,16 @@ export function HostRequestsScreen() {
 
   return (
     <View style={s.container}>
-      <View style={s.tabs}><Chip label="Booking requests" active={tab === 'booking'} onPress={() => setTab('booking')} /><Chip label="Visits" active={tab === 'visit'} onPress={() => setTab('visit')} /></View>
+      <View style={s.tabs}><Segmented value={tab} onChange={setTab} options={[
+        { value: 'booking', label: 'Booking requests', count: items.filter((i) => i.kind === 'booking' && i.b.status === 'pending').length },
+        { value: 'visit', label: 'Visits', count: items.filter((i) => i.kind === 'visit' && i.v.status === 'pending').length },
+      ]} /></View>
       <FlatList
         data={shown}
         keyExtractor={(i) => (i.kind === 'booking' ? i.b._id : i.v._id)}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-        contentContainerStyle={{ padding: spacing.lg }}
-        ListEmptyComponent={loading ? null : <Empty icon="📭" title="Nothing here yet" />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand[500]} colors={[colors.brand[500]]} />}
+        contentContainerStyle={{ padding: spacing.lg, flexGrow: 1 }}
+        ListEmptyComponent={loading ? undefined : <Empty icon="file-tray-outline" title="Nothing here yet" desc="Requests from tenants appear here." />}
         renderItem={({ item }) => {
           if (item.kind === 'booking') {
             const b = item.b;
@@ -128,7 +131,7 @@ function RowCard({ photo, title, status, lines, onPress, children }: { photo?: s
   return (
     <View style={s.card}>
       <TouchableOpacity style={s.cardTop} onPress={onPress} disabled={!onPress} activeOpacity={0.8}>
-        {photo ? <Image source={{ uri: photo }} style={s.photo} /> : <View style={[s.photo, { backgroundColor: colors.ink[100] }]} />}
+        {photo ? <Image source={{ uri: photo }} style={s.photo} /> : <View style={[s.photo, s.noPhoto]}><Icon name="business-outline" size={24} color={colors.brand[300]} /></View>}
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>{title}</Text>
           {lines.filter(Boolean).map((l) => <Text key={l} style={s.line} numberOfLines={2}>{l}</Text>)}
@@ -141,9 +144,10 @@ function RowCard({ photo, title, status, lines, onPress, children }: { photo?: s
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.ink[50] },
-  tabs: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.ink[100] },
-  card: { backgroundColor: colors.white, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.ink[100] },
+  container: { flex: 1, backgroundColor: colors.page },
+  tabs: { padding: spacing.md, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.ink[200] },
+  noPhoto: { backgroundColor: colors.brand[50], alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.ink[200] },
   cardTop: { flexDirection: 'row', gap: spacing.md },
   photo: { width: 72, height: 72, borderRadius: radius.md },
   title: { fontSize: 15, fontWeight: '700', color: colors.ink[900] },

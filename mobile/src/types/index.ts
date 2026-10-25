@@ -1,6 +1,10 @@
+// Mirrors client/src/types.ts so both apps read the same server responses.
 export type Role = 'guest' | 'tenant' | 'owner' | 'admin';
 export type OccupancyType = 'single' | 'double' | 'triple' | 'dorm';
 export type GenderPreference = 'male' | 'female' | 'coed';
+export type ListingStatus = 'active' | 'inactive' | 'pending_review' | 'rejected' | 'deleted';
+export type ReportReason = 'fake_listing' | 'inaccurate' | 'scam' | 'harassment' | 'unsafe' | 'offensive' | 'discrimination' | 'other';
+export type ReportTarget = 'listing' | 'user' | 'review' | 'message';
 
 export interface User {
   id: string;
@@ -13,23 +17,39 @@ export interface User {
   gender: string;
   bio: string;
   college: string;
+  budgetMin: number;
+  budgetMax: number;
+  preferredLocality: string;
   verified: boolean;
   emailVerified: boolean;
   responseRate: number;
   responseTime: string;
   aadhaarVerified: boolean;
+  aadhaarLast4?: string;
   createdAt: string;
+}
+
+export interface CategoryRatings {
+  cleanliness?: number;
+  accuracy?: number;
+  safety?: number;
+  food?: number;
+  value?: number;
 }
 
 export interface Review {
   id: string;
   author: string;
+  authorId?: string | null;
   authorAvatar: string;
   rating: number;
+  ratings?: CategoryRatings;
   date: string;
   text: string;
   verifiedStay: boolean;
+  photos?: string[];
   ownerReply?: { text: string; date: string } | null;
+  propertyId?: string;
   propertyTitle?: string;
 }
 
@@ -78,10 +98,18 @@ export interface PropertyListing {
   moveInDate: string;
   distanceFromLandmark: string;
   views: number;
-  status: string;
+  status: ListingStatus;
   moderationNote?: string;
   roomsAvailable: number;
   rules: string[];
+  createdAt?: string;
+}
+
+export interface ListingPage {
+  listings: PropertyListing[];
+  total: number;
+  page: number;
+  pages: number;
 }
 
 export interface City {
@@ -89,19 +117,37 @@ export interface City {
   listingCount: number;
 }
 
+export interface SiteStats {
+  activeListings: number;
+  verifiedListings: number;
+  cities: number;
+  reviews: number;
+  avgRating: number;
+}
+
+export interface PublicProfile {
+  id: string;
+  fullName: string;
+  role: Role;
+  avatar: string;
+  city: string;
+  bio: string;
+  verified: boolean;
+  responseRate: number;
+  responseTime: string;
+  createdAt: string;
+  rating: number;
+  reviewCount: number;
+  listingCount: number;
+}
+
 export interface NotificationItem {
   _id: string;
   title: string;
   body: string;
-  type: string;
+  type: 'info' | 'listing' | 'review' | 'visit' | 'booking' | 'message' | 'report' | 'account' | 'system';
   read: boolean;
   data?: Record<string, any>;
-  createdAt: string;
-}
-
-export interface FavoriteItem {
-  _id: string;
-  propertyId: PropertyListing;
   createdAt: string;
 }
 
@@ -112,6 +158,8 @@ export interface PropertySummary {
   locality: string;
   photos: string[];
   price: number;
+  status?: ListingStatus;
+  roomsAvailable?: number;
 }
 
 export interface PersonSummary {
@@ -119,54 +167,127 @@ export interface PersonSummary {
   fullName: string;
   avatar?: string;
   phone?: string;
+  emailVerified?: boolean;
 }
+
+export type VisitStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled' | 'completed';
+export type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed';
 
 export interface Visit {
   _id: string;
   propertyId: PropertySummary | null;
   tenantId: PersonSummary | string;
+  ownerId?: string;
   date: string;
   timeSlot: string;
   message: string;
-  status: string;
+  status: VisitStatus;
+  createdAt?: string;
 }
 
 export interface Booking {
   _id: string;
   propertyId: PropertySummary | null;
   tenantId: PersonSummary | string;
+  ownerId?: string;
   moveInDate: string;
   durationMonths: number;
   occupants: number;
   message: string;
   monthlyRent: number;
   deposit: number;
-  status: string;
+  status: BookingStatus;
   instant: boolean;
+  cancelledBy?: string;
   statusReason?: string;
+  createdAt?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'me' | 'them';
+  text: string;
+  time: string;
+  read: boolean;
 }
 
 export interface Conversation {
   id: string;
   propertyId: string | null;
   propertyTitle: string;
+  propertyImage: string;
   participantId: string;
   participantName: string;
   participantAvatar: string;
+  participantRole: Role;
   participantDeleted?: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unread: number;
-  messages: { id: string; sender: 'me' | 'them'; text: string; time: string; read: boolean }[];
+  messages: ChatMessage[];
+}
+
+export interface AdminStats {
+  users: number;
+  owners: number;
+  activeListings: number;
+  pendingListings: number;
+  openReports: number;
+  newInquiries: number;
+  pendingBookings: number;
+  reviews: number;
+}
+
+export interface AdminListing extends PropertyListing {
+  owner: { _id: string; fullName: string; email: string; phone?: string; verified?: boolean } | null;
+}
+
+export interface AdminUser extends User {
+  suspended?: boolean;
+  suspendedReason?: string;
+  lastLoginAt?: string;
+}
+
+export interface AdminReport {
+  _id: string;
+  targetType: ReportTarget;
+  targetId: string;
+  reason: ReportReason;
+  details?: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  reporterId?: { fullName: string; email: string } | null;
+  target?: { title?: string; fullName?: string; text?: string; status?: string } | null;
+  createdAt: string;
+}
+
+export interface Inquiry {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  locality: string;
+  budget: number;
+  moveInDate: string;
+  message: string;
+  status: 'new' | 'contacted' | 'closed';
+  createdAt: string;
 }
 
 // ── Navigation ──────────────────────────────────
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
+export type InfoPage = 'trust' | 'pricing' | 'help' | 'privacy' | 'terms';
+
 export type RootStackParamList = {
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  ResetPassword: { token?: string } | undefined;
+  VerifyEmail: { token?: string } | undefined;
   ListingDetail: { id: string };
+  HostProfile: { id: string; name?: string };
   EditProfile: undefined;
   AccountSettings: undefined;
   Aadhaar: undefined;
@@ -175,16 +296,30 @@ export type RootStackParamList = {
   Trips: undefined;
   HostRequests: undefined;
   HostDashboard: undefined;
+  Admin: undefined;
+  Expert: undefined;
+  Info: { page: InfoPage };
   Chat: { conversationId?: string; participantId: string; participantName: string; propertyId?: string | null; propertyTitle?: string };
   BookVisit: { propertyId: string; title: string };
   RequestBooking: { propertyId: string; title: string; price: number; deposit: number; instantBook: boolean; moveInDate?: string };
   WriteReview: { propertyId: string; title: string };
-  Report: { targetType: 'listing' | 'user' | 'review' | 'message'; targetId: string; label: string };
+  Report: { targetType: ReportTarget; targetId: string; label: string };
+};
+
+export type SearchParams = {
+  q?: string;
+  city?: string;
+  gender?: string;
+  sort?: string;
+  featured?: boolean;
+  verified?: boolean;
+  instantBook?: boolean;
+  maxPrice?: string;
 };
 
 export type TabParamList = {
   Home: undefined;
-  Search: { city?: string; gender?: string; budget?: string };
+  Search: SearchParams | undefined;
   Favorites: undefined;
   Inbox: undefined;
   Profile: undefined;

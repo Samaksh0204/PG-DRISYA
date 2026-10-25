@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  PropertyListing, Owner, Review, City, User, NotificationItem, FavoriteItem, ViewerInfo, Visit, Booking, Conversation,
+  PropertyListing, Owner, Review, City, User, NotificationItem, ViewerInfo, Visit, Booking, Conversation, ListingPage,
+  SiteStats, PublicProfile, CategoryRatings, ReportReason, ReportTarget, AdminStats, AdminListing, AdminUser, AdminReport, Inquiry,
 } from '../types';
 import { apiUrlProblem } from '../utils/format';
+import { AVATAR_BG } from '../theme/colors';
 
 // EXPO_PUBLIC_* variables are inlined at build time (set them in mobile/.env or eas.json).
 export const BASE = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
@@ -61,10 +63,10 @@ export async function request<T>(path: string, opts: RequestInit & { timeoutMs?:
 
 const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 const put = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) });
-const patch = <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
+const patch = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) });
 const del = <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body: body === undefined ? undefined : JSON.stringify(body) });
 
-const avatarFor = (name: string, bg = 'ff4d3d') => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=${bg}&color=fff`;
+const avatarFor = (name: string, bg = AVATAR_BG) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=${bg}&color=fff`;
 
 export function mapProperty(p: any): PropertyListing {
   return {
@@ -94,6 +96,7 @@ export function mapProperty(p: any): PropertyListing {
     moderationNote: p.moderationNote || '',
     roomsAvailable: typeof p.roomsAvailable === 'number' ? p.roomsAvailable : 1,
     rules: p.rules || [],
+    createdAt: p.createdAt,
   };
 }
 
@@ -101,12 +104,16 @@ export function mapReview(r: any): Review {
   return {
     id: r.id || r._id,
     author: r.author || 'Former member',
-    authorAvatar: r.authorAvatar || avatarFor(r.author, '14b8a6'),
+    authorId: r.authorId || null,
+    authorAvatar: r.authorAvatar || avatarFor(r.author || 'A', '14b8a6'),
     rating: r.rating,
+    ratings: r.ratings || {},
     date: r.date,
     text: r.text || '',
     verifiedStay: !!r.verifiedStay,
+    photos: r.photos || [],
     ownerReply: r.ownerReply || null,
+    propertyId: r.propertyId,
     propertyTitle: r.propertyTitle,
   };
 }
@@ -126,16 +133,27 @@ export async function register(body: { fullName: string; email: string; password
 export const getMe = () => request<{ user: User }>('/auth/me');
 export const updateProfile = (updates: Partial<User>) => put<{ user: User }>('/auth/profile', updates);
 export const forgotPassword = (email: string) => post<{ message: string }>('/auth/forgot-password', { email });
+export const resetPassword = (token: string, password: string) => post<{ message: string }>('/auth/reset-password', { token, password });
+export const verifyEmail = (token: string) => post<{ message: string; user: User }>('/auth/verify-email', { token });
 export const changePassword = (currentPassword: string, newPassword: string) => post<{ message: string; token: string }>('/auth/change-password', { currentPassword, newPassword });
 export const resendVerification = () => post<{ message: string }>('/auth/resend-verification');
 export const becomeOwner = () => post<AuthRes>('/auth/become-owner');
 export const deleteAccount = (password: string) => del<{ message: string }>('/auth/me', { password });
 export const verifyAadhaar = (aadhaarNumber: string) => post<{ verified: boolean; user: User }>('/auth/verify-aadhaar', { aadhaarNumber });
+export const exportMyData = () => request<unknown>('/auth/export');
 
 // ── Listings ────────────────────────────────────────
+export async function searchListings(params: Record<string, string | number | boolean | undefined> = {}): Promise<ListingPage> {
+  const clean = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== '' && v !== false)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  const data = await request<{ properties: any[]; total: number; page: number; pages: number }>(`/properties${clean ? `?${clean}` : ''}`);
+  return { listings: data.properties.map(mapProperty), total: data.total ?? data.properties.length, page: data.page ?? 1, pages: data.pages ?? 1 };
+}
+
 export async function fetchListings(params?: Record<string, string>): Promise<PropertyListing[]> {
-  const qs = params ? `?${new URLSearchParams(params).toString()}` : '';
-  return (await request<{ properties: any[] }>(`/properties${qs}`)).properties.map(mapProperty);
+  return (await searchListings(params)).listings;
 }
 
 export async function fetchListingDetail(id: string): Promise<{ property: PropertyListing; owner: Owner | null; reviews: Review[]; viewer: ViewerInfo | null }> {
@@ -168,10 +186,17 @@ export const setListingStatus = async (id: string, status: 'active' | 'inactive'
 export const deleteListing = (id: string) => del<{ message: string }>(`/properties/${id}`);
 export const fetchOwnerListings = async () => (await request<{ properties: any[] }>('/properties/owner/mine')).properties.map(mapProperty);
 export const fetchCities = () => request<City[]>('/properties/cities').catch(() => [] as City[]);
+export const fetchStats = () => request<SiteStats>('/stats');
+
+// ── Public profiles ─────────────────────────────────
+export async function fetchPublicProfile(id: string) {
+  const data = await request<{ user: PublicProfile; listings: any[]; reviews: any[] }>(`/users/${id}`);
+  return { user: data.user, listings: data.listings.map(mapProperty), reviews: data.reviews.map(mapReview) };
+}
 
 // ── Favorites ───────────────────────────────────────
-export const fetchFavorites = async (): Promise<FavoriteItem[]> =>
-  (await request<{ favorites: any[] }>('/favorites')).favorites.map((f) => ({ ...f, propertyId: mapProperty(f.propertyId) }));
+export const fetchFavoriteListings = async (): Promise<PropertyListing[]> =>
+  (await request<{ favorites: any[] }>('/favorites')).favorites.filter((f) => f.propertyId && f.propertyId.title).map((f) => mapProperty(f.propertyId));
 export const fetchFavoriteIds = async () => (await request<{ ids: string[] }>('/favorites/ids')).ids;
 export const toggleFavorite = (propertyId: string) => post<{ saved: boolean }>('/favorites/toggle', { propertyId });
 
@@ -181,27 +206,60 @@ export const fetchMyVisits = async () => (await request<{ visits: Visit[] }>('/v
 export const fetchOwnerVisits = async () => (await request<{ visits: Visit[] }>('/visits/owner')).visits;
 export const updateVisitStatus = (id: string, status: string) => put<{ visit: Visit }>(`/visits/${id}/status`, { status });
 
-export const requestBooking = (body: { propertyId: string; moveInDate: string; durationMonths: number; message?: string }) => post<{ booking: Booking }>('/bookings', body);
+export const requestBooking = (body: { propertyId: string; moveInDate: string; durationMonths: number; occupants?: number; message?: string }) => post<{ booking: Booking }>('/bookings', body);
 export const fetchMyBookings = async () => (await request<{ bookings: Booking[] }>('/bookings/mine')).bookings;
 export const fetchOwnerBookings = async () => (await request<{ bookings: Booking[] }>('/bookings/owner')).bookings;
 export const updateBookingStatus = (id: string, status: string, reason = '') => put<{ booking: Booking }>(`/bookings/${id}/status`, { status, reason });
 
-// ── Reviews & reports ───────────────────────────────
-export const submitReview = (body: { propertyId: string; rating: number; text: string }) => post<{ review: any }>('/reviews', body);
-export const submitReport = (body: { targetType: string; targetId: string; reason: string; details?: string }) => post<{ report: any }>('/reports', body);
+// ── Reviews ─────────────────────────────────────────
+export const submitReview = async (body: { propertyId: string; rating: number; text: string; ratings?: CategoryRatings }) =>
+  mapReview((await post<{ review: any }>('/reviews', body)).review);
+export const replyToReview = async (id: string, text: string) => mapReview((await post<{ review: any }>(`/reviews/${id}/reply`, { text })).review);
+export const deleteReview = (id: string) => del<{ message: string }>(`/reviews/${id}`);
+export const fetchOwnerReviews = async () => (await request<{ reviews: any[] }>('/reviews/owner/mine')).reviews.map(mapReview);
+
+// ── Reports & inquiries ─────────────────────────────
+export const submitReport = (body: { targetType: ReportTarget | string; targetId: string; reason: ReportReason | string; details?: string }) => post<{ report: any }>('/reports', body);
+export const submitInquiry = (body: Record<string, unknown>) => post<{ message: string }>('/inquiries', body);
 
 // ── Messages ────────────────────────────────────────
 export async function fetchConversations(): Promise<Conversation[]> {
   const data = await request<{ conversations: any[] }>('/messages/conversations');
-  return data.conversations.map((c) => ({ ...c, participantAvatar: c.participantAvatar || avatarFor(c.participantName, '14b8a6') }));
+  return data.conversations.map((c) => ({
+    ...c,
+    propertyImage: c.propertyImage || '',
+    participantRole: c.participantRole || 'tenant',
+    participantAvatar: c.participantAvatar || avatarFor(c.participantName, '14b8a6'),
+    messages: c.messages || [],
+  }));
 }
 export const sendMessage = (body: { receiverId: string; text: string; propertyId?: string | null }) =>
   post<{ message: any }>('/messages', { ...body, propertyId: body.propertyId || undefined });
 export const markRead = (propertyId: string | null, senderId: string) => put<{ success: boolean }>('/messages/read', { propertyId, senderId });
+export const fetchUnreadMessageCount = async () => (await request<{ count: number }>('/messages/unread-count')).count;
 
 // ── Notifications ───────────────────────────────────
-export const fetchNotifications = (page = 1) => request<{ notifications: NotificationItem[]; unreadCount: number; total: number }>(`/notifications?page=${page}`);
+export const fetchNotifications = (page = 1) =>
+  request<{ notifications: NotificationItem[]; unreadCount: number; total: number; pages: number }>(`/notifications?page=${page}`);
 export const markAllNotificationsRead = () => put<{ success: boolean }>('/notifications/read-all');
+export const markNotificationRead = (id: string) => put<{ notification: NotificationItem }>(`/notifications/${id}/read`);
+
+// ── Admin ───────────────────────────────────────────
+export const admin = {
+  stats: () => request<AdminStats>('/admin/stats'),
+  listings: async (status: string): Promise<{ total: number; listings: AdminListing[] }> => {
+    const data = await request<{ listings: any[]; total: number }>(`/admin/listings?status=${status}`);
+    return { total: data.total, listings: data.listings.map((l) => ({ ...mapProperty(l), owner: typeof l.ownerId === 'object' ? l.ownerId : null })) };
+  },
+  moderate: (id: string, action: string, note = '') => patch<{ listing: any }>(`/admin/listings/${id}`, { action, note }),
+  users: (q = '') => request<{ users: AdminUser[]; total: number }>(`/admin/users?q=${encodeURIComponent(q)}`),
+  updateUser: (id: string, body: Record<string, unknown>) => patch<{ user: AdminUser }>(`/admin/users/${id}`, body),
+  reports: (status = 'open') => request<{ reports: AdminReport[] }>(`/admin/reports?status=${status}`),
+  resolveReport: (id: string, status: 'resolved' | 'dismissed', removeContent = false, note = '') =>
+    patch<{ report: any }>(`/admin/reports/${id}`, { status, removeContent, note }),
+  inquiries: () => request<{ inquiries: Inquiry[] }>('/admin/inquiries'),
+  updateInquiry: (id: string, status: string) => patch<{ inquiry: Inquiry }>(`/admin/inquiries/${id}`, { status }),
+};
 
 // ── Upload ──────────────────────────────────────────
 export async function uploadImages(images: { uri: string; name: string; type: string }[]): Promise<string[]> {

@@ -34,7 +34,9 @@ export function SkeletonCard({ wide }: { wide?: boolean }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.ink[200],
     overflow: 'hidden',
     marginBottom: spacing.md,
   },
