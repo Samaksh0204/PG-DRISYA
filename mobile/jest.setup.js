@@ -19,3 +19,17 @@ jest.mock('expo-secure-store', () => {
     __store: store,
   };
 });
+
+// Push notifications need a real device; tests use inert stand-ins.
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => null),
+  getPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
+  getExpoPushTokenAsync: jest.fn(async () => ({ data: 'ExponentPushToken[test]' })),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+  AndroidImportance: { HIGH: 4 },
+}));
+jest.mock('expo-device', () => ({ isDevice: false }));

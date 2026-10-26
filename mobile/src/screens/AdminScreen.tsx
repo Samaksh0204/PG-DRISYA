@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { AdminListing, AdminReport, AdminStats, AdminUser, Inquiry, RootStackParamList } from '../types';
+import type { AdminListing, AdminReport, AdminStats, AdminUser, AnalyticsEventName, AnalyticsReport, Inquiry, RootStackParamList } from '../types';
 import { admin } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge, Button, Chip, Empty, ErrorText, Icon, StatusPill } from '../components/ui';
@@ -13,7 +13,7 @@ import { radius, spacing } from '../theme/spacing';
 import { formatDate, formatINR, optimizeImage, timeAgo } from '../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Tab = 'listings' | 'reports' | 'users' | 'inquiries';
+type Tab = 'listings' | 'reports' | 'users' | 'inquiries' | 'analytics';
 
 export function AdminScreen() {
   const { user } = useAuth();
@@ -39,11 +39,13 @@ export function AdminScreen() {
         <Chip label="Reports" icon="flag-outline" active={tab === 'reports'} onPress={() => setTab('reports')} />
         <Chip label="Users" icon="people-outline" active={tab === 'users'} onPress={() => setTab('users')} />
         <Chip label="Inquiries" icon="headset-outline" active={tab === 'inquiries'} onPress={() => setTab('inquiries')} />
+        <Chip label="Analytics" icon="stats-chart-outline" active={tab === 'analytics'} onPress={() => setTab('analytics')} />
       </ScrollView>
       {tab === 'listings' && <ListingsTab onChange={loadStats} />}
       {tab === 'reports' && <ReportsTab onChange={loadStats} />}
       {tab === 'users' && <UsersTab />}
       {tab === 'inquiries' && <InquiriesTab onChange={loadStats} />}
+      {tab === 'analytics' && <AnalyticsTab />}
     </View>
   );
 }
@@ -273,7 +275,89 @@ function InquiriesTab({ onChange }: { onChange: () => void }) {
   );
 }
 
+const EVENT_LABELS: [AnalyticsEventName, string][] = [
+  ['search', 'Searches'], ['listing_view', 'Listing views'], ['visit_requested', 'Visit requests'],
+  ['booking_requested', 'Booking requests'], ['message_sent', 'Messages sent'], ['signup', 'Sign-ups'],
+];
+const PLATFORM_LABEL: Record<string, string> = { web: 'Website', android: 'Android app', ios: 'iPhone app', unknown: 'Other' };
+
+function AnalyticsTab() {
+  const nav = useNavigation<Nav>();
+  const [days, setDays] = useState<7 | 30 | 90>(30);
+  const [r, setR] = useState<AnalyticsReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setR(await admin.analytics(days)); setError(''); } catch (e: any) { setError(e.message); }
+    setLoading(false);
+  }, [days]);
+  useEffect(() => { load(); }, [load]);
+
+  const platformTotal = r ? Object.values(r.platforms).reduce((a, b) => a + (b || 0), 0) : 0;
+  return (
+    <ScrollView contentContainerStyle={s.list} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand[500]} />}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {([7, 30, 90] as const).map((d) => <Chip key={d} label={`Last ${d} days`} active={days === d} onPress={() => setDays(d)} />)}
+      </View>
+      <ErrorText>{error}</ErrorText>
+      {r && (
+        <>
+          <View style={s.tileGrid}>
+            {EVENT_LABELS.map(([k, label]) => (
+              <View key={k} style={s.tile}>
+                <Text style={s.tileLabel}>{label}</Text>
+                <Text style={s.tileVal}>{r.totals[k].count}</Text>
+                {k !== 'signup' ? <Text style={s.meta}>{r.totals[k].users} signed-in</Text> : null}
+              </View>
+            ))}
+          </View>
+
+          <View style={s.card}>
+            <Text style={s.title}>From viewing to requesting</Text>
+            <Text style={s.body}>{r.funnel.listingViews} listing views → {r.funnel.visitRequests} visit requests ({r.funnel.viewToVisitPct}%) → {r.funnel.bookingRequests} booking requests ({r.funnel.viewToBookingPct}%)</Text>
+          </View>
+
+          <View style={s.card}>
+            <Text style={s.title}>Where people use Drisya</Text>
+            {platformTotal === 0 ? <Text style={s.meta}>No activity yet.</Text> : Object.entries(r.platforms).sort((a, b) => (b[1] || 0) - (a[1] || 0)).map(([p, n]) => (
+              <View key={p} style={s.rankRow}><Text style={s.rankLabel}>{PLATFORM_LABEL[p] || p}</Text><Text style={s.rankVal}>{n} · {Math.round(((n || 0) / platformTotal) * 100)}%</Text></View>
+            ))}
+          </View>
+
+          <RankCard title="Top searches" empty="No searches yet." rows={r.topSearches.map((x) => ({ label: x.term, value: x.count }))} />
+          <RankCard title="Searches that found nothing" note={`${r.zeroResultSearches.total} in total — demand you can't serve yet.`} empty="Every search found something." rows={r.zeroResultSearches.terms.map((x) => ({ label: x.term, value: x.count }))} />
+          <RankCard title="Most viewed listings" empty="No listing views yet." rows={r.topListings.map((x) => ({ label: x.title, value: x.views, onPress: () => nav.navigate('ListingDetail', { id: x.propertyId }) }))} />
+          <Text style={[s.meta, { textAlign: 'center' }]}>No personal details are stored with these events.</Text>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+function RankCard({ title, rows, empty, note }: { title: string; rows: { label: string; value: number; onPress?: () => void }[]; empty: string; note?: string }) {
+  return (
+    <View style={s.card}>
+      <Text style={s.title}>{title}</Text>
+      {note ? <Text style={s.meta}>{note}</Text> : null}
+      {rows.length === 0 ? <Text style={[s.meta, { marginTop: spacing.sm }]}>{empty}</Text> : rows.map((row, i) => (
+        <View key={`${row.label}-${i}`} style={s.rankRow}>
+          <Text style={[s.rankLabel, row.onPress && { color: colors.brand[700] }]} numberOfLines={1} onPress={row.onPress}>{i + 1}. {row.label}</Text>
+          <Text style={s.rankVal}>{row.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  tile: { width: '48.5%', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.xl, padding: spacing.md },
+  tileLabel: { fontSize: 12, color: colors.ink[500], fontWeight: '600' },
+  tileVal: { fontSize: 24, fontWeight: '800', color: colors.ink[900], marginTop: 2 },
+  rankRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink[200] },
+  rankLabel: { flex: 1, fontSize: 14, color: colors.ink[700] },
+  rankVal: { fontSize: 14, fontWeight: '700', color: colors.ink[900] },
   page: { flex: 1, backgroundColor: colors.page },
   stats: { padding: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
   stat: { backgroundColor: colors.ink[900], borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, minWidth: 104 },

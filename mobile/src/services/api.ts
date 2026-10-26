@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import type {
   PropertyListing, Owner, Review, City, User, NotificationItem, ViewerInfo, Visit, Booking, Conversation, ListingPage,
   SiteStats, PublicProfile, CategoryRatings, ReportReason, ReportTarget, AdminStats, AdminListing, AdminUser, AdminReport, Inquiry,
-  IdentityState, ThreadPage,
+  IdentityState, ThreadPage, AnalyticsReport,
 } from '../types';
 import Constants from 'expo-constants';
 import { apiUrlProblem, resolveDevUrl } from '../utils/format';
@@ -75,6 +75,8 @@ export async function request<T>(path: string, opts: RequestInit & { timeoutMs?:
   const headers: Record<string, string> = {
     ...(opts.body && !isForm ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // Lets the server split usage stats by web / iOS / Android.
+    'X-Client-Platform': Platform.OS,
     ...((opts.headers as Record<string, string>) || {}),
   };
   const controller = new AbortController();
@@ -302,6 +304,7 @@ export const markNotificationRead = (id: string) => put<{ notification: Notifica
 // ── Admin ───────────────────────────────────────────
 export const admin = {
   stats: () => request<AdminStats>('/admin/stats'),
+  analytics: (days: 7 | 30 | 90) => request<AnalyticsReport>(`/admin/analytics?days=${days}`),
   listings: async (status: string): Promise<{ total: number; listings: AdminListing[] }> => {
     const data = await request<{ listings: any[]; total: number }>(`/admin/listings?status=${status}`);
     return { total: data.total, listings: data.listings.map((l) => ({ ...mapProperty(l), owner: typeof l.ownerId === 'object' ? l.ownerId : null })) };

@@ -87,6 +87,7 @@ function createApp() {
   app.use('/api/stats', require('./routes/stats'));
   app.use('/api/admin', require('./routes/admin'));
   app.use('/api/identity', require('./routes/identity'));
+  app.use('/api/push', require('./routes/push'));
 
   app.use('/api', (_req, res) => res.status(404).json({ message: 'Route not found' }));
 

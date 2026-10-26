@@ -291,6 +291,19 @@ export interface AdminReport {
   createdAt: string;
 }
 
+export type AnalyticsEventName = 'search' | 'listing_view' | 'visit_requested' | 'booking_requested' | 'message_sent' | 'signup';
+
+export interface AnalyticsReport {
+  days: number;
+  totals: Record<AnalyticsEventName, { count: number; users: number }>;
+  daily: { name: AnalyticsEventName; day: string; count: number }[];
+  platforms: Partial<Record<'web' | 'ios' | 'android' | 'unknown', number>>;
+  topSearches: { term: string; count: number }[];
+  zeroResultSearches: { total: number; terms: { term: string; count: number }[] };
+  topListings: { propertyId: string; title: string; city: string; views: number }[];
+  funnel: { listingViews: number; visitRequests: number; bookingRequests: number; viewToVisitPct: number; viewToBookingPct: number };
+}
+
 export interface Inquiry {
   _id: string;
   name: string;
