@@ -242,7 +242,9 @@ describe('aadhaar (simulated)', () => {
       expect((await api().post('/api/auth/verify-aadhaar').set(a.auth).send({ aadhaarNumber: '234567890123' })).status).toBe(400);
       const ok = await api().post('/api/auth/verify-aadhaar').set(a.auth).send({ aadhaarNumber: '234567890124' });
       expect(ok.status).toBe(200);
-      expect(ok.body.user).toMatchObject({ aadhaarVerified: true, aadhaarLast4: '0124', verified: false });
+      expect(ok.body.user).toMatchObject({ aadhaarVerified: true, identityStatus: 'verified', verified: false });
+      // Identity digits are not echoed back to clients.
+      expect(ok.body.user.aadhaarLast4).toBeUndefined();
       expect((await api().post('/api/auth/verify-aadhaar').set(b.auth).send({ aadhaarNumber: '234567890124' })).status).toBe(409);
     } finally {
       delete process.env.AADHAAR_SIMULATION;

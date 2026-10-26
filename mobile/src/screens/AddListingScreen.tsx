@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, Alert, Image, Platform,
 } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { createListing, updateListing, fetchListingDetail, uploadImages } from '../services/api';
+import { prepareForUpload } from '../utils/images';
+import { LocationPicker } from '../components/LocationPicker';
+import { coordProblem } from '../utils/geo';
 import { AMENITY_MAP } from '../data/amenities';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
@@ -47,6 +51,8 @@ export function AddListingScreen() {
   const [rooms, setRooms] = useState('1');
   const [instantBook, setInstantBook] = useState(false);
   const [landmark, setLandmark] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(isEdit);
@@ -72,6 +78,8 @@ export function AddListingScreen() {
             setRooms(String(p.roomsAvailable));
             setInstantBook(p.instantBook);
             setLandmark(p.distanceFromLandmark);
+            // The owner gets the exact position back from the server.
+            if (p.lat && p.lng) { setLat(String(p.lat)); setLng(String(p.lng)); }
           }
         } catch {} finally {
           setInitialLoading(false);
@@ -89,11 +97,8 @@ export function AddListingScreen() {
     if (!result.canceled && result.assets.length > 0) {
       setUploading(true);
       try {
-        const files = result.assets.map((a) => ({
-          uri: a.uri,
-          name: a.fileName || `photo_${Date.now()}.jpg`,
-          type: a.mimeType || 'image/jpeg',
-        }));
+        // Shrink first: full-size phone photos exceed the server's 5 MB limit.
+        const files = await prepareForUpload(result.assets);
         const urls = await uploadImages(files);
         setPhotos((prev) => [...prev, ...urls]);
       } catch (err: any) {
@@ -117,6 +122,11 @@ export function AddListingScreen() {
       Alert.alert('Error', 'Title, city, and a price greater than 0 are required');
       return;
     }
+    const locationProblem = coordProblem(lat, lng);
+    if (locationProblem) {
+      Alert.alert('Check the location', locationProblem);
+      return;
+    }
     if (photos.length === 0) {
       Alert.alert('Add photos', 'Add at least one real photo — listings without photos are not approved.');
       return;
@@ -138,6 +148,8 @@ export function AddListingScreen() {
         roomsAvailable: Math.max(0, Math.floor(Number(rooms) || 0)),
         instantBook,
         distanceFromLandmark: landmark.trim(),
+        lat: lat.trim() ? Number(lat) : 0,
+        lng: lng.trim() ? Number(lng) : 0,
       };
       if (isEdit) {
         await updateListing(editId!, data);
@@ -155,11 +167,11 @@ export function AddListingScreen() {
   };
 
   if (initialLoading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.coral[500]} /></View>;
+    return <View style={styles.center}><ActivityIndicator size="large" color={colors.brand[500]} /></View>;
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>{isEdit ? 'Edit Listing' : 'Add New PG'}</Text>
 
@@ -175,7 +187,7 @@ export function AddListingScreen() {
             </View>
           ))}
           <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImages} disabled={uploading}>
-            {uploading ? <ActivityIndicator color={colors.coral[500]} /> : <Text style={styles.addPhotoText}>+ Add</Text>}
+            {uploading ? <ActivityIndicator color={colors.brand[500]} /> : <Text style={styles.addPhotoText}>+ Add</Text>}
           </TouchableOpacity>
         </ScrollView>
 
@@ -204,6 +216,9 @@ export function AddListingScreen() {
 
         <Text style={styles.label}>Nearby landmark</Text>
         <TextInput style={styles.input} value={landmark} onChangeText={setLandmark} placeholder="e.g. 1 km from DAVV" placeholderTextColor={colors.ink[400]} />
+
+        <Text style={styles.label}>Location on map</Text>
+        <LocationPicker lat={lat} lng={lng} onChange={(a, b) => { setLat(a); setLng(b); }} city={city} locality={locality} />
 
         <Text style={styles.label}>Rooms available now</Text>
         <TextInput style={styles.input} value={rooms} onChangeText={setRooms} keyboardType="numeric" placeholderTextColor={colors.ink[400]} />
@@ -242,7 +257,7 @@ export function AddListingScreen() {
           {Object.entries(AMENITY_MAP).map(([key, val]) => (
             <TouchableOpacity key={key} style={[styles.amenityChip, amenities.includes(key) && styles.amenityChipActive]} onPress={() => toggleAmenity(key)}>
               <Text style={styles.amenityIcon}>{val.icon}</Text>
-              <Text style={[styles.amenityLabel, amenities.includes(key) && { color: colors.coral[600] }]}>{val.label}</Text>
+              <Text style={[styles.amenityLabel, amenities.includes(key) && { color: colors.brand[600] }]}>{val.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -251,7 +266,7 @@ export function AddListingScreen() {
           {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitBtnText}>{isEdit ? 'Save changes' : 'Submit for review'}</Text>}
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 
@@ -279,16 +294,16 @@ const styles = StyleSheet.create({
 
   chipRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   chip: { borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.ink[50] },
-  chipActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  chipActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
   chipText: { fontSize: 13, color: colors.ink[600], fontWeight: '500' },
-  chipTextActive: { color: colors.coral[600], fontWeight: '700' },
+  chipTextActive: { color: colors.brand[600], fontWeight: '700' },
 
   amenityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   amenityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.ink[50] },
-  amenityChipActive: { borderColor: colors.coral[500], backgroundColor: colors.coral[50] },
+  amenityChipActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
   amenityIcon: { fontSize: 14 },
   amenityLabel: { fontSize: 12, color: colors.ink[600] },
 
-  submitBtn: { backgroundColor: colors.coral[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
+  submitBtn: { backgroundColor: colors.brand[500], borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'] },
   submitBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 });

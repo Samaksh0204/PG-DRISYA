@@ -36,3 +36,17 @@ describe('format helpers', () => {
     expect(apiUrlProblem(undefined, false)).toMatch(/without an API/);
   });
 });
+
+describe('resolveDevUrl', () => {
+  const { resolveDevUrl } = require('../src/utils/format');
+  test('swaps a stale LAN address for the current Expo host in development', () => {
+    expect(resolveDevUrl('http://192.168.29.165:5000/api', '192.168.1.12:8081', true)).toBe('http://192.168.1.12:5000/api');
+    expect(resolveDevUrl(undefined, '192.168.1.12:8081', true)).toBe('http://192.168.1.12:5000/api');
+    expect(resolveDevUrl('http://localhost:5173', '10.0.0.5:8081', true, 5173, '')).toBe('http://10.0.0.5:5173');
+  });
+  test('never changes release builds, real domains or tunnels', () => {
+    expect(resolveDevUrl('http://192.168.29.165:5000/api', '192.168.1.12:8081', false)).toBe('http://192.168.29.165:5000/api');
+    expect(resolveDevUrl('https://api.pgdrisya.com/api', '192.168.1.12:8081', true)).toBe('https://api.pgdrisya.com/api');
+    expect(resolveDevUrl('http://192.168.29.165:5000/api', 'abc-anonymous-8081.exp.direct', true)).toBe('http://192.168.29.165:5000/api');
+  });
+});

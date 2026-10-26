@@ -1,14 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, MapPin, Share2, Heart, ShieldCheck, Crown, Calendar, MessageCircle, Phone, ArrowLeft,
+  ChevronLeft, ChevronRight, MapPin, Share2, Heart, ShieldCheck, Crown, Calendar, MessageCircle, ArrowLeft,
   CheckCircle2, Camera, AlertCircle, Zap, ListChecks, BedDouble, Users, Wallet, CalendarCheck, Star,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { fetchListingDetail, fetchListings, sendMessage, scheduleVisit, requestBooking, submitReview, type ListingDetail } from '../lib/api';
+import { fetchListingDetail, fetchListings, sendMessage, newClientId, scheduleVisit, requestBooking, submitReview, type ListingDetail } from '../lib/api';
 import { ListingCard } from '../components/ListingCard';
 import { ResponseRateBadge } from '../components/Badges';
 import { Avatar, Modal, ErrorText, Stars, StarInput, PageLoader, SafeImage, StatusPill } from '../components/ui';
 import { ReportButton } from '../components/ReportModal';
+import { IdentityBadge } from '../components/IdentityVerification';
 import { AMENITY_ICONS, AMENITY_LABELS } from '../data/amenityIcons';
 import { formatINR, formatDate, formatDay, upcomingDates, localISODate, addDays, moveInCost, routeParams } from '../lib/format';
 import type { PropertyListing, Review, CategoryRatings } from '../types';
@@ -235,7 +236,7 @@ export function ListingDetailPage() {
               <Suspense fallback={<div className="skeleton h-72 rounded-2xl" />}>
                 <ListingLocationMap lat={listing.lat} lng={listing.lng} label={`${[listing.locality, listing.city].filter(Boolean).join(', ')} — exact location shared after your visit is confirmed`} />
               </Suspense>
-              <p className="mt-2 text-xs text-ink-500">Approximate area. The exact address is shared once your visit or booking is confirmed.</p>
+              <p className="mt-2 text-xs text-ink-500">{listing.exactLocation ? 'Exact location — shared with you because your visit or booking is confirmed.' : 'Approximate area. The exact location is shared once your visit or booking is confirmed.'}</p>
             </Section>
 
             <ReviewsSection listing={listing} reviews={reviews} canReview={!!viewer?.canReview} onWrite={() => setModal('review')} />
@@ -259,11 +260,7 @@ export function ListingDetailPage() {
                 <div className="card space-y-3 p-6">
                   <button onClick={() => requireLogin(() => setModal('visit'))} className="btn-outline w-full"><Calendar className="h-4 w-4" /> Book a visit</button>
                   <button onClick={() => requireLogin(() => setModal('message'))} className="btn-outline w-full"><MessageCircle className="h-4 w-4" /> Message owner</button>
-                  {owner?.phone ? (
-                    <a href={`tel:${owner.phone}`} className="btn-outline w-full"><Phone className="h-4 w-4" /> Call {owner.phone}</a>
-                  ) : (
-                    <p className="text-center text-xs text-ink-500">The owner's phone number is shown after a confirmed visit or booking.</p>
-                  )}
+                  <p className="text-center text-xs text-ink-500">Host phone numbers are never shared. Talk to the host here in Drisya messages, so there's a record if anything goes wrong.</p>
                 </div>
               )}
 
@@ -274,8 +271,9 @@ export function ListingDetailPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-semibold text-ink-900 dark:text-ink-100">{owner.name}</span>
-                        {owner.verified && <ShieldCheck className="h-4 w-4 text-teal-500" aria-label="Identity verified by Drisya" />}
+                        {owner.verified && <ShieldCheck className="h-4 w-4 text-teal-500" aria-label="Host checked by the Drisya team" />}
                       </div>
+                      {owner.identityVerified && <div className="mt-1"><IdentityBadge /></div>}
                       {owner.responseRate > 0 && <ResponseRateBadge rate={owner.responseRate} time={owner.responseTime} />}
                     </div>
                   </button>
@@ -430,17 +428,17 @@ function BookingCard({ listing, loggedIn, emailVerified, onNeedLogin }: { listin
     <div id="booking-card" className="card scroll-mt-24 p-6 transition-shadow duration-500">
       <div className="mb-4 flex items-baseline justify-between">
         <div><span className="text-2xl font-bold text-ink-900 dark:text-ink-100">{formatINR(listing.price)}</span><span className="text-sm text-ink-500"> /month</span></div>
-        {listing.reviewCount > 0 && <span className="flex items-center gap-1 text-sm"><Star className="h-3.5 w-3.5 fill-warning text-warning" /> {listing.rating.toFixed(1)}</span>}
+        {listing.reviewCount > 0 && <span className="flex items-center gap-1 text-sm font-semibold text-ink-900 dark:text-ink-100"><Star className="h-3.5 w-3.5 fill-warning text-warning" /> {listing.rating.toFixed(1)}</span>}
       </div>
 
       <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-ink-300 dark:border-ink-600">
         <label className="border-r border-ink-300 p-3 dark:border-ink-600">
           <span className="block text-[10px] font-bold uppercase text-ink-700 dark:text-ink-200">Move-in</span>
-          <input type="date" min={earliest} max={addDays(today, 180)} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className="w-full bg-transparent text-sm outline-none" />
+          <input type="date" min={earliest} max={addDays(today, 180)} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} aria-label="Move-in date" className="mt-0.5 w-full bg-transparent text-sm font-medium text-ink-900 outline-none dark:text-ink-100" />
         </label>
         <label className="p-3">
           <span className="block text-[10px] font-bold uppercase text-ink-700 dark:text-ink-200">Stay</span>
-          <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="w-full bg-transparent text-sm outline-none">
+          <select value={months} onChange={(e) => setMonths(Number(e.target.value))} aria-label="Length of stay" className="mt-0.5 w-full bg-transparent text-sm font-medium text-ink-900 outline-none dark:text-ink-100">
             {[1, 2, 3, 6, 9, 11, 12, 24].map((m) => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
           </select>
         </label>
@@ -471,11 +469,13 @@ function MessageModal({ listing, ownerId, onClose }: { listing: PropertyListing;
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // One id per dialog: pressing Send again after a timeout can't create a duplicate.
+  const [clientId] = useState(newClientId);
   const send = async () => {
     setSending(true);
     setError('');
     try {
-      await sendMessage({ propertyId: listing.id, receiverId: ownerId, text: text.trim() });
+      await sendMessage({ propertyId: listing.id, receiverId: ownerId, text: text.trim(), clientId });
       setSent(true);
     } catch (err) {
       setError((err as Error).message);
@@ -489,11 +489,11 @@ function MessageModal({ listing, ownerId, onClose }: { listing: PropertyListing;
         <div className="py-6 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-teal-500" />
           <p className="text-sm text-ink-600 dark:text-ink-300">We'll notify you when the owner replies.</p>
-          <div className="mt-6 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Close</button><button onClick={() => navigate('/messages')} className="btn-primary flex-1">Open messages</button></div>
+          <div className="mt-6 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Close</button><button onClick={() => navigate(`/messages?with=${ownerId}&property=${listing.id}`)} className="btn-primary flex-1">Open conversation</button></div>
         </div>
       ) : (
         <>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5} className="input w-full resize-none" aria-label="Message" />
+          <textarea data-autofocus value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5} className="input w-full resize-none" aria-label="Message" />
           <p className="mt-1 text-xs text-ink-500">Don't share bank details or OTPs in chat.</p>
           <div className="mt-3"><ErrorText>{error}</ErrorText></div>
           <div className="mt-4 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Cancel</button><button onClick={send} disabled={!text.trim() || sending} className="btn-primary flex-1">{sending ? 'Sending…' : 'Send'}</button></div>
@@ -547,7 +547,7 @@ function VisitModal({ listing, onClose }: { listing: PropertyListing; onClose: (
               </div>
             </>
           )}
-          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Note for the owner (optional)" className="input mt-4 w-full" />
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Note for the owner (optional)" aria-label="Note for the owner (optional)" className="input mt-4 w-full" />
           <div className="mt-3"><ErrorText>{error}</ErrorText></div>
           <div className="mt-4 flex gap-3"><button onClick={onClose} className="btn-outline flex-1">Cancel</button><button onClick={book} disabled={!date || !slot || sending} className="btn-primary flex-1">{sending ? 'Booking…' : 'Request visit'}</button></div>
         </>

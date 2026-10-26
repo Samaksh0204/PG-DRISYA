@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
+  Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
@@ -38,7 +39,7 @@ export function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
@@ -84,7 +85,7 @@ export function LoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => nav.navigate('ForgotPassword')} style={{ alignSelf: 'center', marginTop: spacing.md }}>
-            <Text style={{ color: colors.coral[600], fontWeight: '600' }}>Forgot password?</Text>
+            <Text style={{ color: colors.brand[600], fontWeight: '600' }}>Forgot password?</Text>
           </TouchableOpacity>
 
           <View style={styles.divider}>
@@ -109,7 +110,7 @@ export function LoginScreen() {
           </View>
         )}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing['2xl'] },
 
   header: { alignItems: 'center', marginBottom: spacing['3xl'] },
-  logo: { fontSize: 32, fontWeight: '800', color: colors.coral[500] },
+  logo: { fontSize: 32, fontWeight: '800', color: colors.brand[500] },
   subtitle: { fontSize: 16, color: colors.ink[500], marginTop: spacing.sm },
 
   form: {},
@@ -130,10 +131,10 @@ const styles = StyleSheet.create({
   },
   passRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyeBtn: { paddingHorizontal: spacing.md },
-  eyeText: { fontSize: 13, color: colors.coral[600], fontWeight: '600' },
+  eyeText: { fontSize: 13, color: colors.brand[600], fontWeight: '600' },
 
   loginBtn: {
-    backgroundColor: colors.coral[500], borderRadius: radius.lg,
+    backgroundColor: colors.brand[500], borderRadius: radius.lg,
     paddingVertical: 16, alignItems: 'center', marginTop: spacing['2xl'],
   },
   loginBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },

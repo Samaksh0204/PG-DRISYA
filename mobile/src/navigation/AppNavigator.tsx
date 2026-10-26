@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigation, createNavigationContainerRef, type LinkingOptions } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
+import { routeForNotification } from './notificationRoute';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Linking from 'expo-linking';
 import type { RootStackParamList, TabParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { Avatar, Icon, type IconName } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -22,17 +26,54 @@ import { AddListingScreen } from '../screens/AddListingScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OwnerDashboardScreen } from '../screens/OwnerDashboardScreen';
 import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
+import { HostProfileScreen } from '../screens/HostProfileScreen';
+import { AdminScreen } from '../screens/AdminScreen';
+import { InfoScreen, ExpertScreen } from '../screens/InfoScreens';
 import { InboxScreen, ChatScreen } from '../screens/InboxScreens';
 import { TripsScreen, HostRequestsScreen } from '../screens/TripsScreens';
-import { ForgotPasswordScreen, BookVisitScreen, RequestBookingScreen, WriteReviewScreen, ReportScreen } from '../screens/ActionScreens';
+import {
+  ForgotPasswordScreen, ResetPasswordScreen, VerifyEmailScreen, BookVisitScreen, RequestBookingScreen, WriteReviewScreen, ReportScreen,
+} from '../screens/ActionScreens';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const TAB_ICONS: Record<keyof TabParamList, string> = { Home: '🏠', Search: '🔍', Favorites: '❤️', Inbox: '💬', Profile: '👤' };
+const TAB_ICONS: Record<keyof TabParamList, [IconName, IconName]> = {
+  Home: ['home', 'home-outline'],
+  Search: ['search', 'search-outline'],
+  Favorites: ['heart', 'heart-outline'],
+  Inbox: ['chatbubbles', 'chatbubbles-outline'],
+  Profile: ['person', 'person-outline'],
+};
+
+// The same navy/teal palette as the website, applied to every navigator.
+const theme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, primary: colors.brand[500], background: colors.page, card: colors.white, text: colors.ink[900], border: colors.ink[200], notification: colors.brand[500] },
+};
+
+// Links from emails/website: pgdrisya://listing/<id>, pgdrisya://reset-password?token=…,
+// pgdrisya://verify-email?token=…, pgdrisya://user/<id>
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [Linking.createURL('/'), 'pgdrisya://'],
+  config: {
+    screens: {
+      MainTabs: { screens: { Home: '', Search: 'search', Favorites: 'wishlist', Inbox: 'messages', Profile: 'profile' } },
+      ListingDetail: 'listing/:id',
+      HostProfile: 'user/:id',
+      ResetPassword: 'reset-password',
+      VerifyEmail: 'verify-email',
+      Notifications: 'notifications',
+      Trips: 'dashboard',
+      HostDashboard: 'owner',
+      Admin: 'admin',
+      Expert: 'expert',
+    },
+  },
+};
 
 function HeaderRight() {
-  const { user } = useAuth();
+  const { user, unreadNotifications } = useAuth();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   if (!user) {
     return (
@@ -41,65 +82,101 @@ function HeaderRight() {
       </TouchableOpacity>
     );
   }
-  const avatar = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=ff4d3d&color=fff&size=80`;
   return (
-    <TouchableOpacity onPress={() => nav.navigate('Notifications')} style={styles.headerBtn} accessibilityLabel="Notifications">
-      <Image source={{ uri: avatar }} style={styles.headerAvatar} />
-    </TouchableOpacity>
+    <View style={[styles.headerBtn, { flexDirection: 'row', alignItems: 'center', gap: spacing.md }]}>
+      <TouchableOpacity onPress={() => nav.navigate('Notifications')} accessibilityLabel={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} hitSlop={8}>
+        <Icon name="notifications-outline" size={23} color={colors.ink[900]} />
+        {unreadNotifications > 0 && <View style={styles.dot} />}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => nav.navigate('MainTabs', { screen: 'Profile' })} accessibilityLabel="Profile">
+        <Avatar uri={user.avatar} name={user.fullName} size={30} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 function MainTabs() {
+  const { unreadMessages } = useAuth();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: colors.white },
         headerTintColor: colors.ink[900],
-        headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+        headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+        headerTitleAlign: 'left',
         headerShadowVisible: false,
         headerRight: () => <HeaderRight />,
-        tabBarActiveTintColor: colors.coral[500],
+        tabBarActiveTintColor: colors.brand[600],
         tabBarInactiveTintColor: colors.ink[400],
-        tabBarStyle: { borderTopColor: colors.ink[100], paddingBottom: 6, height: 58 },
-        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{TAB_ICONS[route.name]}</Text>,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarStyle: { borderTopColor: colors.ink[200], backgroundColor: colors.white },
+        tabBarIcon: ({ focused, color, size }) => <Icon name={TAB_ICONS[route.name][focused ? 0 : 1]} size={size - 2} color={color} />,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarBadgeStyle: { backgroundColor: colors.brand[500], color: colors.white, fontSize: 10, fontWeight: '800' },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Saved' }} />
-      <Tab.Screen name="Inbox" component={InboxScreen} options={{ title: 'Inbox' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} options={{ title: 'Find a PG', tabBarLabel: 'Search' }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Wishlist', tabBarLabel: 'Saved' }} />
+      <Tab.Screen name="Inbox" component={InboxScreen} options={{ title: 'Messages', tabBarLabel: 'Inbox', tabBarBadge: unreadMessages > 0 ? (unreadMessages > 99 ? '99+' : unreadMessages) : undefined }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
 
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// Tapping a phone notification opens the matching screen — also when the tap is what
+// launched the app.
+function useNotificationTaps(ready: boolean) {
+  const { user } = useAuth();
+  const roleRef = React.useRef(user?.role);
+  roleRef.current = user?.role;
+  React.useEffect(() => {
+    if (!ready) return;
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!response || !navigationRef.isReady()) return;
+      const c = response.notification.request.content;
+      const dest = routeForNotification({ title: c.title || '', body: c.body || '', data: (c.data || {}) as Record<string, any> }, roleRef.current);
+      if (dest) (navigationRef.navigate as any)(dest.name, dest.params);
+    };
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [ready]);
+}
+
 export function AppNavigator() {
   const { loading } = useAuth();
+  const [navReady, setNavReady] = React.useState(false);
+  useNotificationTaps(navReady && !loading);
   if (loading) {
     return (
       <View style={styles.splash}>
+        <View style={styles.splashMark}><Icon name="shield-checkmark" size={40} color={colors.brand[400]} /></View>
         <Text style={styles.splashLogo}>PG Drisya</Text>
-        <Text style={styles.splashSub}>Loading…</Text>
       </View>
     );
   }
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} theme={theme} linking={linking} onReady={() => setNavReady(true)}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.white },
           headerTintColor: colors.ink[900],
-          headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+          headerTitleStyle: { fontWeight: '700', fontSize: 17 },
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.white },
+          headerBackTitle: 'Back',
+          contentStyle: { backgroundColor: colors.page },
         }}
       >
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign in', presentation: 'modal' }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset password' }} />
-        <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: '', headerTransparent: true }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'New password' }} />
+        <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ title: 'Confirm email' }} />
+        <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="HostProfile" component={HostProfileScreen} options={({ route }) => ({ title: route.params.name || 'Profile' })} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit profile' }} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} options={{ title: 'Account settings' }} />
         <Stack.Screen name="Aadhaar" component={AadhaarScreen} options={{ title: 'ID verification' }} />
@@ -108,6 +185,9 @@ export function AppNavigator() {
         <Stack.Screen name="Trips" component={TripsScreen} options={{ title: 'My bookings & visits' }} />
         <Stack.Screen name="HostDashboard" component={OwnerDashboardScreen} options={{ title: 'Host dashboard' }} />
         <Stack.Screen name="HostRequests" component={HostRequestsScreen} options={{ title: 'Requests' }} />
+        <Stack.Screen name="Admin" component={AdminScreen} options={{ title: 'Admin console' }} />
+        <Stack.Screen name="Expert" component={ExpertScreen} options={{ title: 'Drisya Expert' }} />
+        <Stack.Screen name="Info" component={InfoScreen} options={{ title: '' }} />
         <Stack.Screen name="Chat" component={ChatScreen} options={({ route }) => ({ title: route.params.participantName })} />
         <Stack.Screen name="BookVisit" component={BookVisitScreen} options={{ title: 'Book a visit' }} />
         <Stack.Screen name="RequestBooking" component={RequestBookingScreen} options={{ title: 'Book' }} />
@@ -120,9 +200,9 @@ export function AppNavigator() {
 
 const styles = StyleSheet.create({
   headerBtn: { marginRight: spacing.lg },
-  headerLoginText: { fontSize: 14, fontWeight: '700', color: colors.coral[500] },
-  headerAvatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: colors.coral[500] },
-  splash: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white },
-  splashLogo: { fontSize: 36, fontWeight: '800', color: colors.coral[500] },
-  splashSub: { fontSize: 14, color: colors.ink[500], marginTop: spacing.sm },
+  headerLoginText: { fontSize: 14, fontWeight: '700', color: colors.brand[600] },
+  dot: { position: 'absolute', top: -1, right: -1, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand[500], borderWidth: 1.5, borderColor: colors.white },
+  splash: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.ink[900] },
+  splashMark: { width: 80, height: 80, borderRadius: 20, backgroundColor: colors.ink[800], alignItems: 'center', justifyContent: 'center' },
+  splashLogo: { fontSize: 30, fontWeight: '800', color: colors.white, marginTop: spacing.lg },
 });

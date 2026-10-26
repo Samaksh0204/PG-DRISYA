@@ -7,27 +7,40 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "primaryColor": "#14B8A6",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ff4d3d"
+      "backgroundColor": "#102A43"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.drisya.pg",
       "buildNumber": "1",
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PG Drisya uses your location only when you choose to pin your PG on the map."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ff4d3d"
+        "backgroundColor": "#102A43"
       },
       "package": "com.drisya.pg",
       "versionCode": 1,
-      "permissions": [],
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -36,6 +49,25 @@
           "photosPermission": "PG Drisya needs access to your photos so you can add pictures of your property or profile.",
           "cameraPermission": false,
           "microphonePermission": false
+        }
+      ],
+      "expo-build-properties",
+      "expo-status-bar",
+      "expo-font",
+      "expo-asset",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PG Drisya uses your location only when you choose to pin your PG on the map.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#14B8A6"
         }
       ]
     ]

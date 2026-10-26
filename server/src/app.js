@@ -58,7 +58,13 @@ function createApp() {
 
   // Gzip responses: listing JSON and the website's files get roughly 70-80% smaller.
   app.use(compression());
-  app.use(express.json({ limit: '1mb' }));
+  // Keep the exact bytes of identity-provider webhooks so their signature can be checked.
+  app.use(express.json({
+    limit: '1mb',
+    verify: (req, _res, buf) => {
+      if (req.originalUrl.startsWith('/api/identity/webhook')) req.rawBody = Buffer.from(buf);
+    },
+  }));
   app.use(sanitize);
 
   app.get('/api/health', (_req, res) => {
@@ -80,6 +86,8 @@ function createApp() {
   app.use('/api/users', require('./routes/users'));
   app.use('/api/stats', require('./routes/stats'));
   app.use('/api/admin', require('./routes/admin'));
+  app.use('/api/identity', require('./routes/identity'));
+  app.use('/api/push', require('./routes/push'));
 
   app.use('/api', (_req, res) => res.status(404).json({ message: 'Route not found' }));
 

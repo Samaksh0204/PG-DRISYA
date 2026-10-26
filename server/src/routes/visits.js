@@ -8,6 +8,10 @@ const AppError = require('../utils/AppError');
 const { notify } = require('../utils/notify');
 const { isObjectId, isISODate, daysFromToday } = require('../utils/validators');
 
+const { personForCounterparty } = require('../utils/serializers');
+
+const { track } = require('../utils/analytics');
+
 const router = express.Router();
 
 const TIME_SLOT_RE = /^(0[1-9]|1[0-2]):[0-5]\d (AM|PM)$/;
@@ -64,6 +68,7 @@ router.post(
       'visit',
       { propertyId: property._id, visitId: visit._id }
     );
+    track(req, 'visit_requested', { propertyId: String(propertyId) });
     res.status(201).json({ visit });
   })
 );
@@ -90,7 +95,14 @@ router.get(
       .populate('tenantId', 'fullName phone avatar')
       .sort({ date: -1, createdAt: -1 })
       .limit(200);
-    res.json({ visits });
+    // The tenant's phone is shared with the host only once the visit is confirmed.
+    res.json({
+      visits: visits.map((v) => {
+        const o = v.toObject();
+        o.tenantId = personForCounterparty(o.tenantId, ['confirmed', 'completed'].includes(v.status));
+        return o;
+      }),
+    });
   })
 );
 

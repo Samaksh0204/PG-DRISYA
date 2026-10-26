@@ -11,6 +11,10 @@ const { sendMail } = require('../utils/mailer');
 const { appUrl } = require('../config/env');
 const { isObjectId, isISODate, daysFromToday } = require('../utils/validators');
 
+const { personForCounterparty } = require('../utils/serializers');
+
+const { track } = require('../utils/analytics');
+
 const router = express.Router();
 const MAX_DAYS_AHEAD = 180;
 
@@ -93,6 +97,7 @@ router.post(
       await notify(property.ownerId, 'New booking request', `${req.user.fullName} wants to book "${property.title}" from ${moveInDate} (${months} month${months > 1 ? 's' : ''}).`, 'booking', { bookingId: booking._id, propertyId });
       await emailUser(property.ownerId, 'New booking request', `${req.user.fullName} wants to book "${property.title}" from ${moveInDate}. Please accept or decline within 24 hours.`, '/owner');
     }
+    track(req, 'booking_requested', { propertyId: String(propertyId), instant: !!instant });
     res.status(201).json({ booking });
   })
 );
@@ -121,7 +126,14 @@ router.get(
       .populate('tenantId', 'fullName avatar phone emailVerified')
       .sort({ createdAt: -1 })
       .limit(200);
-    res.json({ bookings });
+    // The tenant's phone is shared with the host only once the booking is accepted.
+    res.json({
+      bookings: bookings.map((b) => {
+        const o = b.toObject();
+        o.tenantId = personForCounterparty(o.tenantId, ['accepted', 'completed'].includes(b.status));
+        return o;
+      }),
+    });
   })
 );
 

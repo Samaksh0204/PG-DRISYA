@@ -5,6 +5,8 @@ const Booking = require('../models/Booking');
 const Review = require('../models/Review');
 const Report = require('../models/Report');
 const Inquiry = require('../models/Inquiry');
+const AnalyticsEvent = require('../models/AnalyticsEvent');
+const { EVENTS } = require('../utils/analytics');
 const { auth, requireRole } = require('../middleware/auth');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
@@ -14,6 +16,8 @@ const { appUrl } = require('../config/env');
 const { isObjectId, escapeRegex, parsePagination } = require('../utils/validators');
 const { fanOutNewListing } = require('./properties');
 const { recomputePropertyRating } = require('../services/ratings');
+
+const { audit } = require('../utils/audit');
 
 const router = express.Router();
 router.use(auth, requireRole('admin'));
@@ -33,6 +37,74 @@ router.get(
       Review.countDocuments({}),
     ]);
     res.json({ users, owners, activeListings, pendingListings, openReports, newInquiries, pendingBookings, reviews });
+  })
+);
+
+// GET /api/admin/analytics?days=30 — usage overview for the admin dashboard.
+router.get(
+  '/analytics',
+  asyncHandler(async (req, res) => {
+    const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const match = { createdAt: { $gte: since } };
+
+    const [totals, daily, platforms, searches, zeroResults, views] = await Promise.all([
+      AnalyticsEvent.aggregate([
+        { $match: match },
+        { $group: { _id: '$name', count: { $sum: 1 }, actors: { $addToSet: '$actor' } } },
+        { $project: { count: 1, users: { $size: { $setDifference: ['$actors', ['']] } } } },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: match },
+        { $group: { _id: { name: '$name', day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Kolkata' } } }, count: { $sum: 1 } } },
+        { $sort: { '_id.day': 1 } },
+      ]),
+      AnalyticsEvent.aggregate([{ $match: match }, { $group: { _id: '$platform', count: { $sum: 1 } } }]),
+      AnalyticsEvent.aggregate([
+        { $match: { ...match, name: 'search' } },
+        { $project: { term: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$props.q', ''] } }, 0] }, '$props.q', '$props.city'] } } },
+        { $match: { term: { $nin: ['', null] } } },
+        { $group: { _id: '$term', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { ...match, name: 'search', 'props.results': 0 } },
+        { $project: { term: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$props.q', ''] } }, 0] }, '$props.q', { $ifNull: ['$props.city', ''] }] } } },
+        { $group: { _id: '$term', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { ...match, name: 'listing_view' } },
+        { $group: { _id: '$props.propertyId', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+    ]);
+
+    const titles = new Map(
+      (await Property.find({ _id: { $in: views.map((v) => v._id).filter(isObjectId) } }).select('title city')).map((p) => [p._id.toString(), p])
+    );
+    const count = (name) => totals.find((t) => t._id === name)?.count || 0;
+    const rate = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
+    res.json({
+      days,
+      totals: Object.fromEntries(EVENTS.map((e) => [e, { count: count(e), users: totals.find((t) => t._id === e)?.users || 0 }])),
+      daily: daily.map((d) => ({ name: d._id.name, day: d._id.day, count: d.count })),
+      platforms: Object.fromEntries(platforms.map((p) => [p._id, p.count])),
+      topSearches: searches.map((s) => ({ term: s._id, count: s.count })),
+      zeroResultSearches: { total: zeroResults.reduce((n, z) => n + z.count, 0), terms: zeroResults.map((z) => ({ term: z._id || '(no text — filters only)', count: z.count })) },
+      topListings: views.map((v) => ({ propertyId: v._id, title: titles.get(String(v._id))?.title || '(removed)', city: titles.get(String(v._id))?.city || '', views: v.count })),
+      funnel: {
+        listingViews: count('listing_view'),
+        visitRequests: count('visit_requested'),
+        bookingRequests: count('booking_requested'),
+        viewToVisitPct: rate(count('visit_requested'), count('listing_view')),
+        viewToBookingPct: rate(count('booking_requested'), count('listing_view')),
+      },
+    });
   })
 );
 
@@ -110,6 +182,7 @@ router.patch(
       default:
         break;
     }
+    await audit(req, `admin.listing_${action}`, { targetType: 'listing', targetId: property._id });
     res.json({ listing: property });
   })
 );
@@ -158,6 +231,7 @@ router.patch(
       user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
     await user.save();
+    await audit(req, 'admin.user_updated', { targetType: 'user', targetId: user._id, meta: { suspended, verified, role } });
     res.json({ user: { ...user.toProfile(), suspended: user.suspended, suspendedReason: user.suspendedReason } });
   })
 );
@@ -207,6 +281,7 @@ router.patch(
     report.resolvedAt = new Date();
     await report.save();
     await notify(report.reporterId, 'Update on your report', `Thanks for your report. Our team has ${status} it.`, 'report', { reportId: report._id });
+    await audit(req, `admin.report_${status}`, { targetType: 'report', targetId: report._id, meta: { removeContent: !!removeContent } });
     res.json({ report });
   })
 );

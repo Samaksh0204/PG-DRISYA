@@ -53,7 +53,14 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-page font-sans text-ink-700 antialiased;
+    /* Dark mode needs light default text: anything that doesn't set its own colour
+       (native date/select controls, small labels) would otherwise be navy on navy. */
+    @apply bg-page font-sans text-ink-700 antialiased dark:text-ink-200;
+  }
+  /* Native dropdown lists don't inherit the page background in every browser. */
+  html.dark select option {
+    background-color: rgb(var(--ink-900));
+    color: rgb(var(--ink-100));
   }
   h1, h2, h3, h4 {
     @apply text-ink-900 dark:text-white;
@@ -69,6 +76,11 @@
 }
 
 @layer components {
+  /* Top-level layers. Dialogs and toasts are portalled to <body> and sit above
+     everything on the page, including Leaflet's panes and controls (200–1000). */
+  .z-modal { z-index: 1000; }
+  .z-toast { z-index: 1100; }
+
   .container-page {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
@@ -166,4 +178,12 @@
     transition-duration: 0.01ms !important;
   }
   .reveal { opacity: 1; transform: none; }
+}
+
+/* Leaflet gives its panes z-index 200–1000. Make every map its own stacking
+   context so those values only order layers *inside* the map and can never
+   paint over headers, drawers or dialogs elsewhere on the page. */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
 }

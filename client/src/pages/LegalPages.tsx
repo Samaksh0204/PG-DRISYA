@@ -151,7 +151,7 @@ export function TermsPage() {
 const FAQ: [string, string][] = [
   ['Does Drisya charge brokerage?', 'No. Drisya does not charge tenants or hosts any fee at the moment. You pay rent and deposit directly to the host at move-in.'],
   ['How does booking work?', 'Pick a move-in date and length of stay and send a request. The host accepts or declines, usually within 24 hours. PGs with Instant Book are confirmed immediately while rooms are free. Nothing is charged online.'],
-  ['When can I see the owner\'s phone number?', 'After the host confirms your visit or accepts your booking. Until then, use Drisya messages.'],
+  ['Can I get the owner\'s phone number?', 'No. To keep everyone safe, host phone numbers are never shown. Message the host on Drisya — before and after your visit or booking — so there is always a record.'],
   ['Who can write reviews?', 'Only tenants whose visit was marked completed, or who stayed there through a booking. Reviews from stays are labelled "Stayed here".'],
   ['What does "Verified" mean?', 'Our team physically inspected the property. Every new listing is also reviewed online before it goes live.'],
   ['How do I cancel?', 'Open My trips → Bookings or Visits and choose Cancel. The other person is notified straight away.'],

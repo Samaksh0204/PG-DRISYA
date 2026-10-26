@@ -1,4 +1,5 @@
-import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
+import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Info, Loader2, LogIn, Star, X, type LucideIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { optimizeImage, imageSrcSet } from '../lib/image';
@@ -15,25 +16,64 @@ export function PageLoader() {
   );
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let openModals = 0;
+
+// Dialogs render into <body> through a portal, in their own top-level stacking layer
+// (z-modal in index.css). Rendering them inside the page let positioned content with
+// its own z-index — e.g. Leaflet map panes (z-index 200–1000) — paint over them.
 export function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Parents usually pass an inline arrow; keep the latest one without re-running the effect.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const root = document.getElementById('root');
+    openModals += 1;
+    if (root) root.inert = true; // background can't be clicked, tabbed to or read by screen readers
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+
+    const dialog = dialogRef.current;
+    const first = dialog?.querySelector<HTMLElement>('[data-autofocus]') || dialog;
+    first?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialog) return;
+      const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (!items.length) return;
+      const [head, tail] = [items[0], items[items.length - 1]];
+      if (e.shiftKey && document.activeElement === head) { e.preventDefault(); tail.focus(); }
+      else if (!e.shiftKey && document.activeElement === tail) { e.preventDefault(); head.focus(); }
     };
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 flex animate-backdrop-in items-end justify-center bg-ink-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      openModals -= 1;
+      if (openModals === 0) {
+        if (root) root.inert = false;
+        document.body.style.overflow = prevOverflow;
+      }
+      previouslyFocused?.focus?.();
+    };
+  }, []);
+
+  return createPortal(
+    <div className="z-modal fixed inset-0 flex animate-backdrop-in items-end justify-center bg-ink-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`max-h-[92vh] w-full animate-slide-up overflow-y-auto rounded-t-2xl border border-ink-200 bg-white p-6 shadow-card-hover dark:border-ink-800 dark:bg-ink-900 sm:animate-scale-in sm:rounded-2xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
-        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        className={`max-h-[92dvh] w-full animate-slide-up overflow-y-auto overscroll-contain rounded-t-2xl border border-ink-200 bg-white p-6 shadow-card-hover outline-none dark:border-ink-800 dark:bg-ink-900 sm:animate-scale-in sm:rounded-2xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">{title}</h3>
@@ -43,7 +83,8 @@ export function Modal({ title, onClose, children, wide = false }: { title: strin
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -154,8 +195,9 @@ export function StarInput({ value, onChange, label }: { value: number; onChange:
 export function Toaster() {
   const { toasts, dismissToast } = useApp();
   const icon = { success: CheckCircle2, error: AlertCircle, info: Info };
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
+  // Portalled above dialogs so a toast raised from inside a dialog stays visible and clickable.
+  return createPortal(
+    <div className="z-toast pointer-events-none fixed inset-x-0 bottom-4 flex flex-col items-center gap-2 px-4" aria-live="polite">
       {toasts.map((t) => {
         const Icon = icon[t.kind];
         return (
@@ -173,7 +215,8 @@ export function Toaster() {
           </div>
         );
       })}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

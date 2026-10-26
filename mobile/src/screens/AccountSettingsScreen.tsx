@@ -1,16 +1,21 @@
 // Account settings: email confirmation, password, legal links, and in-app account
 // deletion (required by Google Play and the App Store for apps with sign-up).
 import React, { useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { changePassword, deleteAccount, resendVerification, setToken, WEB_URL } from '../services/api';
+import { changePassword, deleteAccount, exportMyData, resendVerification, setToken } from '../services/api';
 import { Button, Card, ErrorText, Field } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { passwordProblem } from '../utils/format';
 
 export function AccountSettingsScreen() {
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, logout } = useAuth();
+  const [exporting, setExporting] = useState(false);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [pwError, setPwError] = useState('');
@@ -59,19 +64,36 @@ export function AccountSettingsScreen() {
     ]);
   };
 
-  const openWeb = (path: string) => (WEB_URL ? Linking.openURL(`${WEB_URL}/#${path}`) : Alert.alert('Not configured', 'EXPO_PUBLIC_WEB_URL is not set.'));
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const data = await exportMyData();
+      await Share.share({ title: 'My PG Drisya data', message: JSON.stringify(data, null, 2) });
+    } catch (e: any) {
+      Alert.alert('Could not export', e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <ScrollView style={{ backgroundColor: colors.ink[50] }} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: colors.page }} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
       <Card>
         <Text style={s.h}>Email</Text>
         <Text style={s.p}>{user.email}</Text>
         {user.emailVerified ? <Text style={[s.small, { color: colors.teal[700] }]}>Confirmed</Text> : (
           <>
             <Text style={[s.small, { color: colors.amber[700] }]}>Not confirmed — needed to request bookings.</Text>
-            <Button variant="outline" title="Resend confirmation email" onPress={async () => { try { Alert.alert('Sent', (await resendVerification()).message); } catch (e: any) { Alert.alert('Error', e.message); } }} style={{ marginTop: spacing.md }} />
+            <Button variant="outline" icon="mail-outline" title="Resend confirmation email" onPress={async () => { try { Alert.alert('Sent', (await resendVerification()).message); } catch (e: any) { Alert.alert('Error', e.message); } }} style={{ marginTop: spacing.md }} />
+            <Button variant="ghost" title="I have the link — confirm now" onPress={() => nav.navigate('VerifyEmail')} style={{ marginTop: spacing.xs }} />
           </>
         )}
+      </Card>
+
+      <Card>
+        <Text style={s.h}>Identity verification</Text>
+        <Text style={s.p}>{{ verified: 'Verified', pending: 'Pending — finish on the provider\'s page', rejected: 'Not approved', unverified: 'Not verified' }[user.identityStatus || 'unverified']}</Text>
+        <Button variant="outline" icon="finger-print" title={user.identityStatus === 'verified' ? 'View details' : 'Verify my identity'} onPress={() => nav.navigate('Aadhaar')} style={{ marginTop: spacing.md }} />
       </Card>
 
       <Card>
@@ -84,9 +106,9 @@ export function AccountSettingsScreen() {
 
       <Card>
         <Text style={s.h}>Legal & data</Text>
-        <Button variant="outline" title="Privacy policy" onPress={() => openWeb('/privacy')} style={s.gap} />
-        <Button variant="outline" title="Terms of service" onPress={() => openWeb('/terms')} style={s.gap} />
-        <Button variant="outline" title="Download my data (website)" onPress={() => openWeb('/profile/edit')} />
+        <Button variant="outline" icon="document-text-outline" title="Terms & privacy" onPress={() => nav.navigate('Info', { page: 'terms' })} style={s.gap} />
+        <Button variant="outline" icon="download-outline" title="Export my data" onPress={exportData} loading={exporting} />
+        <Text style={s.small}>A copy of your profile, listings, bookings, visits, reviews and messages as JSON.</Text>
       </Card>
 
       <Card>
