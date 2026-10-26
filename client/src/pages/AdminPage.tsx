@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Shield, Building2, Flag, Users, Inbox, CheckCircle2, XCircle, ShieldCheck, Crown, Ban } from 'lucide-react';
+import { Shield, Building2, Flag, Users, Inbox, CheckCircle2, XCircle, ShieldCheck, Crown, Ban, BarChart3 } from 'lucide-react';
+import { AnalyticsReport } from '../components/AnalyticsReport';
 import { useApp } from '../context/AppContext';
 import { admin } from '../lib/api';
 import { Avatar, EmptyState, PageLoader, SignInRequired, StatusPill, SafeImage, Modal, ErrorText } from '../components/ui';
 import { formatDate, formatINR } from '../lib/format';
 
-type Tab = 'listings' | 'reports' | 'users' | 'inquiries';
+type Tab = 'listings' | 'reports' | 'users' | 'inquiries' | 'analytics';
 
 export function AdminPage() {
   const { auth, authLoading } = useApp();
@@ -23,6 +24,7 @@ export function AdminPage() {
     { key: 'reports', label: 'Reports', icon: Flag, count: stats?.openReports },
     { key: 'users', label: 'Users', icon: Users },
     { key: 'inquiries', label: 'Expert requests', icon: Inbox, count: stats?.newInquiries },
+    { key: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   return (
@@ -47,6 +49,7 @@ export function AdminPage() {
         {tab === 'reports' && <ReportsAdmin onChange={refreshStats} />}
         {tab === 'users' && <UsersAdmin />}
         {tab === 'inquiries' && <InquiriesAdmin onChange={refreshStats} />}
+        {tab === 'analytics' && <AnalyticsReport />}
       </div>
     </div>
   );

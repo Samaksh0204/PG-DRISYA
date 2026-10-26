@@ -1,6 +1,6 @@
 import type {
   PropertyListing, Review, Owner, Conversation, NotificationItem, Visit, Booking, UserProfile,
-  PublicProfile, SiteStats, ViewerInfo, ReportReason, ReportTarget, CategoryRatings, IdentityState, ThreadPage,
+  PublicProfile, SiteStats, ViewerInfo, ReportReason, ReportTarget, CategoryRatings, IdentityState, ThreadPage, AnalyticsReport,
 } from '../types';
 import { shrinkImage } from './image';
 
@@ -38,6 +38,8 @@ export async function request<T>(path: string, opts: RequestInit = {}): Promise<
   const headers: Record<string, string> = {
     ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // Lets the server split usage stats by web / iOS / Android.
+    'X-Client-Platform': 'web',
     ...((opts.headers as Record<string, string>) || {}),
   };
   let res: Response;
@@ -298,6 +300,7 @@ export const submitInquiry = (body: Record<string, unknown>) => post<{ message: 
 
 export const admin = {
   stats: () => request<Record<string, number>>('/admin/stats'),
+  analytics: (days: 7 | 30 | 90) => request<AnalyticsReport>(`/admin/analytics?days=${days}`),
   listings: async (status: string) => {
     const data = await request<{ listings: any[]; total: number }>(`/admin/listings?status=${status}`);
     return { total: data.total, listings: data.listings.map((l) => ({ ...mapProperty(l), owner: l.ownerId })) };

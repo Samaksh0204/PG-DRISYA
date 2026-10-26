@@ -5,6 +5,8 @@ import {
   getMe, login as apiLogin, register as apiRegister, clearToken, setToken, getToken, fetchFavoriteIds, setUnauthorizedHandler,
   fetchUnreadMessageCount, fetchNotifications,
 } from '../services/api';
+import * as Notifications from 'expo-notifications';
+import { registerForPush, unregisterPush } from '../services/push';
 
 const COUNTS_POLL_MS = 30000;
 
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const reset = useCallback(async () => {
+    await unregisterPush(); // while the session is still valid
     await clearToken();
     setUser(null);
     setFavoriteIds(new Set());
@@ -94,6 +97,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (timer) clearInterval(timer);
       sub.remove();
     };
+  }, [user?.id, refreshCounts]);
+
+  // Signed in: register this phone for push (asks permission the first time).
+  // A push arriving while the app is open refreshes the badges straight away.
+  useEffect(() => {
+    if (!user) return;
+    registerForPush();
+    const sub = Notifications.addNotificationReceivedListener(() => { refreshCounts(); });
+    return () => sub.remove();
   }, [user?.id, refreshCounts]);
 
   const login = async (email: string, password: string) => {

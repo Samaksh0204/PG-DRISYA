@@ -63,6 +63,12 @@
           "isAndroidBackgroundLocationEnabled": false,
           "isIosBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#14B8A6"
+        }
       ]
     ]
   }

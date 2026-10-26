@@ -20,6 +20,8 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)** to go live, **[docs/API.md](docs/API.md)*
 
 **Messaging:** private host–tenant chat on the website and in the app, with paginated history, safe retries, blocking, reporting and a safety tip when contact details are shared. Phone numbers and emails are never shown on public pages.
 
+**Push notifications & analytics:** phone pushes for new messages, booking/visit requests and replies (tapping one opens the right screen), and an admin Analytics tab covering searches, listing views, requests, messages and sign-ups. Push needs a one-time Expo/Firebase setup; see DEPLOYMENT.md.
+
 **Accounts:** sign-up with terms consent, email confirmation (required before booking), forgot/reset/change password (changing it signs out other devices), profile photo, data download, permanent account deletion.
 
 **Admin (`/#/admin`):** moderation queue (approve / reject with reason / mark inspected = Verified badge / feature / pause), reports (take down & resolve), users (search, verify ID, suspend), Drisya Expert requests.

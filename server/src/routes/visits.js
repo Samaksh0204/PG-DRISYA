@@ -10,6 +10,8 @@ const { isObjectId, isISODate, daysFromToday } = require('../utils/validators');
 
 const { personForCounterparty } = require('../utils/serializers');
 
+const { track } = require('../utils/analytics');
+
 const router = express.Router();
 
 const TIME_SLOT_RE = /^(0[1-9]|1[0-2]):[0-5]\d (AM|PM)$/;
@@ -66,6 +68,7 @@ router.post(
       'visit',
       { propertyId: property._id, visitId: visit._id }
     );
+    track(req, 'visit_requested', { propertyId: String(propertyId) });
     res.status(201).json({ visit });
   })
 );

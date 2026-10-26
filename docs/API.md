@@ -58,6 +58,19 @@ The website (`client/`) and the mobile app (`mobile/`) talk to the same Express 
 
 **Real-time updates:** the apps poll for new messages; there are no websockets. A message sent on the website shows up on the phone within about 5 seconds while that chat is open (about 15 seconds in the inbox list), and the other way round.
 
+### Push notifications: `/api/push`
+
+| Method & path | Purpose |
+|---|---|
+| `POST /register` | `{ token: 'ExponentPushToken[…]', platform }`, called by the app after sign-in. A device always belongs to the account that signed in on it last. |
+| `POST /unregister` | `{ token }`, called on sign-out. Only removes the device from your own account. |
+
+Every in-app notification also goes to the user's phones. Each chat message is pushed too, with `data: { type: 'message', senderId, senderName, propertyId, propertyTitle }`, so tapping it opens that chat. Devices that Expo reports as unregistered are deleted automatically.
+
+### Analytics: `GET /api/admin/analytics?days=7|30|90` (admin)
+
+Both apps send `X-Client-Platform: web | ios | android`. The server records `search` (first page only), `listing_view` (not the owner's own views), `visit_requested`, `booking_requested`, `message_sent` and `signup`. The response has totals and unique signed-in users per event, a daily series, a platform split, top searches, searches that found nothing, the most-viewed listings, and the view → visit → booking funnel.
+
 ## Rate limits (production)
 
 All limits are per IP address unless they say "per account".

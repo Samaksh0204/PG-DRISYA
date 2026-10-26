@@ -13,6 +13,8 @@ const { flags } = require('../config/env');
 const { ownerReviewStats } = require('../services/ratings');
 const { canReviewProperty, hasStayed, canSeeExactLocation } = require('../services/relationships');
 
+const { track } = require('../utils/analytics');
+
 const router = express.Router();
 
 const VALID_GENDERS = ['male', 'female', 'coed'];
@@ -116,6 +118,15 @@ router.get(
       Property.find(filter).sort(sortObj).skip(skip).limit(limit),
       Property.countDocuments(filter),
     ]);
+    // Count each search once (first page), with which filters were used and whether anything came back.
+    if (page === 1) {
+      track(req, 'search', {
+        q: search ? String(search).trim().toLowerCase().slice(0, 50) : '',
+        city: city ? String(city).trim().toLowerCase().slice(0, 50) : '',
+        filters: ['gender', 'occupancy', 'minPrice', 'maxPrice', 'amenities', 'verified', 'instantBook', 'featured', 'sort'].filter((k) => req.query[k]),
+        results: total,
+      });
+    }
     res.json({ properties: properties.map((p) => publicProperty(p)), total, page, pages: Math.ceil(total / limit) });
   })
 );
@@ -163,6 +174,7 @@ router.get(
     if (property.status === 'active' && !isOwner) {
       await Property.updateOne({ _id: property._id }, { $inc: { views: 1 } });
       property.views += 1;
+      track(req, 'listing_view', { propertyId: property._id.toString(), city: (property.city || '').toLowerCase() });
     }
 
     const [owner, reviews, ownerListingCount, stats] = await Promise.all([

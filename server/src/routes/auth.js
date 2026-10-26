@@ -21,6 +21,8 @@ const { deleteAccount } = require('../services/accountDeletion');
 
 const { audit } = require('../utils/audit');
 
+const { track } = require('../utils/analytics');
+
 const router = express.Router();
 const BCRYPT_ROUNDS = process.env.NODE_ENV === 'test' ? 4 : 10;
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -71,6 +73,7 @@ router.post(
     });
 
     await sendVerificationEmail(user);
+    track(req, 'signup', { role: user.role }, user._id);
     res.status(201).json({ token: signAuthToken(user), user: user.toProfile() });
   })
 );

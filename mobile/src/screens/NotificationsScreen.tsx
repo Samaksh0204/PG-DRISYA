@@ -9,6 +9,7 @@ import { Empty, ErrorText, Icon, ScreenLoader, type IconName } from '../componen
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
 import { timeAgo } from '../utils/format';
+import { routeForNotification } from '../navigation/notificationRoute';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -69,14 +70,9 @@ export function NotificationsScreen() {
       setItems((prev) => prev.map((n) => (n._id === item._id ? { ...n, read: true } : n)));
       markNotificationRead(item._id).then(refreshCounts).catch(() => {});
     }
-    const host = user?.role === 'owner' || user?.role === 'admin';
-    const incoming = /request|instant booking|cancelled by the tenant/i.test(item.title + item.body);
-    if (item.type === 'message') nav.navigate('MainTabs', { screen: 'Inbox' });
-    else if (item.type === 'booking' || item.type === 'visit') nav.navigate(host && incoming ? 'HostRequests' : 'Trips');
-    else if (item.type === 'listing' && /your listing/i.test(item.title)) nav.navigate('HostDashboard');
-    else if (item.type === 'review' && host && !item.data?.propertyId) nav.navigate('HostDashboard');
-    else if (item.data?.inquiryId && user?.role === 'admin') nav.navigate('Admin');
-    else if (item.data?.propertyId) nav.navigate('ListingDetail', { id: String(item.data.propertyId) });
+    const dest = routeForNotification(item, user?.role);
+    // The list item for a message has no sender name, so it opens the inbox.
+    if (dest && dest.name !== 'Notifications') (nav.navigate as any)(dest.name, dest.params);
   };
 
   if (loading) return <ScreenLoader />;

@@ -6,10 +6,13 @@ const Property = require('../models/Property');
 const Notification = require('../models/Notification');
 const { auth } = require('../middleware/auth');
 const Block = require('../models/Block');
+const { pushToUser } = require('../services/push');
 const { messageLimiter, messageReadLimiter, writeLimiter } = require('../middleware/rateLimiters');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { isObjectId } = require('../utils/validators');
+
+const { track } = require('../utils/analytics');
 
 const router = express.Router();
 const MAX_MESSAGES_SCANNED = 2000;
@@ -235,6 +238,19 @@ router.post(
         data: { senderId: req.user._id.toString(), propertyId: property?._id || null },
       });
     }
+    track(req, 'message_sent', { aboutListing: !!property });
+    // Every new message pings the recipient's phone (the in-app notification above is de-duplicated).
+    pushToUser(receiverId, {
+      title: req.user.fullName,
+      body: text.trim(),
+      data: {
+        type: 'message',
+        senderId: req.user._id.toString(),
+        senderName: req.user.fullName,
+        propertyId: property ? property._id.toString() : '',
+        propertyTitle: property ? property.title : '',
+      },
+    });
     res.status(201).json({ message: msg, ...(mentionsContactInfo(text) ? { warning: 'contact_info' } : {}) });
   })
 );

@@ -2,7 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, DefaultTheme, useNavigation, type LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigation, createNavigationContainerRef, type LinkingOptions } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
+import { routeForNotification } from './notificationRoute';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import type { RootStackParamList, TabParamList } from '../types';
@@ -121,8 +123,32 @@ function MainTabs() {
   );
 }
 
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// Tapping a phone notification opens the matching screen — also when the tap is what
+// launched the app.
+function useNotificationTaps(ready: boolean) {
+  const { user } = useAuth();
+  const roleRef = React.useRef(user?.role);
+  roleRef.current = user?.role;
+  React.useEffect(() => {
+    if (!ready) return;
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!response || !navigationRef.isReady()) return;
+      const c = response.notification.request.content;
+      const dest = routeForNotification({ title: c.title || '', body: c.body || '', data: (c.data || {}) as Record<string, any> }, roleRef.current);
+      if (dest) (navigationRef.navigate as any)(dest.name, dest.params);
+    };
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [ready]);
+}
+
 export function AppNavigator() {
   const { loading } = useAuth();
+  const [navReady, setNavReady] = React.useState(false);
+  useNotificationTaps(navReady && !loading);
   if (loading) {
     return (
       <View style={styles.splash}>
@@ -132,7 +158,7 @@ export function AppNavigator() {
     );
   }
   return (
-    <NavigationContainer theme={theme} linking={linking}>
+    <NavigationContainer ref={navigationRef} theme={theme} linking={linking} onReady={() => setNavReady(true)}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.white },
