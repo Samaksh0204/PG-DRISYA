@@ -2,6 +2,7 @@ import type {
   PropertyListing, Review, Owner, Conversation, NotificationItem, Visit, Booking, UserProfile,
   PublicProfile, SiteStats, ViewerInfo, ReportReason, ReportTarget, CategoryRatings, IdentityState, ThreadPage,
 } from '../types';
+import { shrinkImage } from './image';
 
 // Same-origin '/api' by default (Vite proxies it in dev). Set VITE_API_URL for a separately hosted API.
 export const BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
@@ -315,6 +316,7 @@ export const admin = {
 
 export async function uploadImages(files: File[]): Promise<string[]> {
   const formData = new FormData();
-  files.forEach((file) => formData.append('images', file));
+  // Large phone photos would exceed the 5 MB limit; shrink them first.
+  (await Promise.all(files.map(shrinkImage))).forEach((file) => formData.append('images', file));
   return (await request<{ urls: string[] }>('/upload', { method: 'POST', body: formData })).urls;
 }

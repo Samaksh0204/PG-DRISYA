@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -71,7 +72,7 @@ export function EditProfileScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={{ flex: 1 }}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.avatarWrap} onPress={pickAvatar} accessibilityRole="button" accessibilityLabel="Change profile photo" disabled={uploading}>
           <Avatar uri={avatar} name={form.fullName || user.fullName} size={96} />
@@ -106,7 +107,7 @@ export function EditProfileScreen() {
         <ErrorText>{error}</ErrorText>
         <Button title="Save changes" onPress={handleSave} loading={saving} disabled={uploading} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 

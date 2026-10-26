@@ -16,7 +16,7 @@ jest.mock('@react-navigation/native', () => {
     useFocusEffect: (cb: () => void | (() => void)) => React.useEffect(cb, [cb]),
   };
 });
-jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 64 }));
+jest.mock('@react-navigation/elements', () => ({ ...jest.requireActual('@react-navigation/elements'), useHeaderHeight: () => 64 }));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 
 const json = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));

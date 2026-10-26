@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
+  Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
+import { Icon } from '../components/ui';
 import { useNavigation } from '@react-navigation/native';
 import { Linking } from 'react-native';
 import { WEB_URL } from '../services/api';
@@ -54,7 +56,7 @@ export function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.logo}>PG Drisya</Text>
@@ -68,11 +70,14 @@ export function RegisterScreen() {
             {(['tenant', 'owner'] as const).map((r) => (
               <TouchableOpacity
                 key={r}
-                style={[styles.roleBtn, role === r && styles.roleBtnActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: role === r }}
+                style={[styles.roleBtn, role === r && styles.roleBtnActive, { flexDirection: 'row', justifyContent: 'center', gap: 6 }]}
                 onPress={() => setRole(r)}
               >
+                <Icon name={r === 'tenant' ? 'home-outline' : 'key-outline'} size={16} color={role === r ? colors.brand[700] : colors.ink[500]} />
                 <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
-                  {r === 'tenant' ? '🏠 Tenant' : '🔑 Owner'}
+                  {r === 'tenant' ? 'Tenant' : 'Owner'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -117,7 +122,7 @@ export function RegisterScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 

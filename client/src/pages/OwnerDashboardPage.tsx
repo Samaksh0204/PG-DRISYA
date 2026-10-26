@@ -496,7 +496,7 @@ function ListingWizard({ editing, onClose, onSaved }: { editing: PropertyListing
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-ink-300 p-6 text-center hover:border-brand-400 disabled:opacity-50 dark:border-ink-600">
             {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <ImagePlus className="h-8 w-8 text-ink-300" />}
             <span className="text-sm font-medium">{uploading ? 'Uploading…' : 'Add photos'}</span>
-            <span className="text-xs text-ink-500">Real photos of rooms, washroom, kitchen and building. JPG/PNG/WebP up to 5 MB, max 15.</span>
+            <span className="text-xs text-ink-500">Real photos of rooms, washroom, kitchen and building. JPG/PNG/WebP, max 15. Large photos are resized automatically.</span>
           </button>
           {!editing && <p className="mt-3 text-xs text-ink-500">By submitting you confirm you own or manage this property and the details are accurate. Our team reviews every new listing.</p>}
         </div>

@@ -317,16 +317,35 @@ export const admin = {
 };
 
 // ── Upload ──────────────────────────────────────────
+// Photo uploads go through React Native's XMLHttpRequest, not `fetch`: since SDK 52
+// Expo replaces the global fetch with `expo/fetch`, which rejects React Native's
+// `{ uri, name, type }` FormData parts ("uri is not supported"), so every upload
+// failed on the device before reaching the server. XHR streams the file from its uri.
+export function uploadFormData<T>(path: string, formData: FormData, timeoutMs = 60000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    (async () => {
+      const token = await getToken();
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE}${path}`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.timeout = timeoutMs;
+      xhr.onload = () => {
+        let json: any = {};
+        try { json = JSON.parse(xhr.responseText || '{}'); } catch { /* non-JSON body */ }
+        if (xhr.status >= 200 && xhr.status < 300) return resolve(json as T);
+        if (xhr.status === 401 && token && onUnauthorized) onUnauthorized();
+        reject(new ApiError(json.message || `Upload failed (${xhr.status})`, xhr.status));
+      };
+      xhr.onerror = () => reject(new ApiError('Photo upload failed. Check your connection and try again.', 0));
+      xhr.ontimeout = () => reject(new ApiError('Photo upload timed out. Try again on a stronger connection or with fewer photos.', 0));
+      xhr.send(formData);
+    })().catch(reject);
+  });
+}
+
 export async function uploadImages(images: { uri: string; name: string; type: string }[]): Promise<string[]> {
   const formData = new FormData();
   images.forEach((img) => formData.append('images', { uri: img.uri, name: img.name, type: img.type } as any));
-  try {
-    return (await request<{ urls: string[] }>('/upload', { method: 'POST', body: formData, timeoutMs: 60000 })).urls;
-  } catch (e) {
-    // Android reports a server closing a too-large upload as a network failure.
-    if (e instanceof ApiError && e.status === 0) {
-      throw new ApiError('Photo upload failed. Check your connection and try again with fewer photos.', 0);
-    }
-    throw e;
-  }
+  return (await uploadFormData<{ urls: string[] }>('/upload', formData)).urls;
 }
