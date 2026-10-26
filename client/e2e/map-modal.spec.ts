@@ -13,8 +13,20 @@ async function dialogCoversMap(page: Page) {
     // Line the map up behind the dialog (the trigger may have scrolled it away).
     const before = d.getBoundingClientRect();
     window.scrollBy(0, mapEl.getBoundingClientRect().top - before.top);
-    const map = mapEl.getBoundingClientRect();
+    let map = mapEl.getBoundingClientRect();
     const r = d.getBoundingClientRect();
+    if (map.top >= Math.min(r.bottom, innerHeight) || map.bottom <= r.top) {
+      // The page is too short to scroll it there (depends on fonts/viewport): pin the
+      // map's own box right under the dialog instead. Its stacking (isolated, z-index 0)
+      // is unchanged, so this still tests whether map layers can paint over dialogs.
+      const box = mapEl.parentElement as HTMLElement;
+      box.style.position = 'fixed';
+      box.style.top = `${r.top}px`;
+      box.style.left = '0';
+      box.style.width = '100%';
+      box.style.height = `${Math.min(300, r.height)}px`;
+      map = mapEl.getBoundingClientRect();
+    }
     let total = 0;
     let onMap = 0;
     for (let y = Math.max(r.top, map.top) + 4; y < Math.min(r.bottom, map.bottom, innerHeight); y += 15) {

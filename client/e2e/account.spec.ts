@@ -54,6 +54,8 @@ test('sign up → onboarding saved → confirm email → change & reset password
   await logout(page);
   await page.goto('/#/login');
   await page.getByRole('button', { name: 'Forgot password?' }).click();
+  // The reset page loads on demand; wait for it, or "Email address" can still match the login form.
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible();
   await page.getByLabel('Email address').fill(EMAIL);
   await page.getByRole('button', { name: 'Send reset link' }).click();
   await expect(page.getByText(/a reset link has been sent/)).toBeVisible();
