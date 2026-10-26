@@ -261,6 +261,11 @@ export function ChatScreen() {
           {params.propertyId ? <Icon name="chevron-forward" size={14} color={colors.ink[400]} /> : null}
         </TouchableOpacity>
       ) : null}
+      {data.length === 0 ? (
+        // Outside the inverted list: Android flips inverted lists both ways, which
+        // mirrored this text when it was the list's empty component.
+        <View style={s.emptyChat}><Icon name="chatbubbles-outline" size={28} color={colors.brand[300]} /><Text style={s.hint}>Say hello! Ask about rooms, food, rules and visit times.</Text></View>
+      ) : (
       <FlatList
         inverted
         data={data}
@@ -270,7 +275,6 @@ export function ChatScreen() {
         onEndReachedThreshold={0.3}
         keyboardShouldPersistTaps="handled"
         ListFooterComponent={loadingOlder ? <ActivityIndicator color={colors.brand[500]} style={{ marginVertical: spacing.md }} /> : undefined}
-        ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }] }}><Text style={s.hint}>Say hello! Ask about rooms, food, rules and visit times.</Text></View>}
         renderItem={({ item }) => {
           const mine = item.sender === 'me';
           return (
@@ -286,6 +290,14 @@ export function ChatScreen() {
           );
         }}
       />
+      )}
+      {!p.deleted && (
+        <View style={s.footerLinks}>
+          <TouchableOpacity onPress={() => nav.navigate('HostProfile', { id: params.participantId, name: params.participantName })} hitSlop={8}><Text style={s.footerLink}>View profile</Text></TouchableOpacity>
+          <TouchableOpacity onPress={toggleBlock} hitSlop={8}><Text style={s.footerLink}>{thread.blockedByMe ? 'Unblock' : 'Block'}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => nav.navigate('Report', { targetType: 'user', targetId: params.participantId, label: params.participantName })} hitSlop={8}><Text style={s.footerLink}>Report</Text></TouchableOpacity>
+        </View>
+      )}
       {warning && (
         <View style={s.warning}>
           <Icon name="shield-checkmark-outline" size={16} color={colors.amber[700]} />
@@ -304,13 +316,6 @@ export function ChatScreen() {
         <Text style={[s.hint, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           {p.deleted ? 'This person has closed their account.' : thread.blockedByMe ? 'You blocked this person. Unblock to send messages.' : "You can't message this person."}
         </Text>
-      )}
-      {!p.deleted && (
-        <View style={[s.footerLinks, { paddingBottom: insets.bottom ? 0 : 8 }]}>
-          <TouchableOpacity onPress={() => nav.navigate('HostProfile', { id: params.participantId, name: params.participantName })} hitSlop={6}><Text style={s.footerLink}>View profile</Text></TouchableOpacity>
-          <TouchableOpacity onPress={toggleBlock} hitSlop={6}><Text style={s.footerLink}>{thread.blockedByMe ? 'Unblock' : 'Block'}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => nav.navigate('Report', { targetType: 'user', targetId: params.participantId, label: params.participantName })} hitSlop={6}><Text style={s.footerLink}>Report</Text></TouchableOpacity>
-        </View>
       )}
     </KeyboardAvoidingView>
   );
@@ -342,6 +347,7 @@ const s = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.ink[200], gap: spacing.sm, backgroundColor: colors.white },
   input: { flex: 1, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, maxHeight: 120, minHeight: 44, fontSize: 15, color: colors.ink[900] },
   send: { backgroundColor: colors.brand[500], borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  footerLinks: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl, paddingTop: 4, backgroundColor: colors.white },
+  footerLinks: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl, paddingVertical: 6, backgroundColor: colors.page },
+  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
   footerLink: { fontSize: 12, color: colors.ink[500], paddingVertical: 4 },
 });

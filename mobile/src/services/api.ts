@@ -320,5 +320,13 @@ export const admin = {
 export async function uploadImages(images: { uri: string; name: string; type: string }[]): Promise<string[]> {
   const formData = new FormData();
   images.forEach((img) => formData.append('images', { uri: img.uri, name: img.name, type: img.type } as any));
-  return (await request<{ urls: string[] }>('/upload', { method: 'POST', body: formData, timeoutMs: 60000 })).urls;
+  try {
+    return (await request<{ urls: string[] }>('/upload', { method: 'POST', body: formData, timeoutMs: 60000 })).urls;
+  } catch (e) {
+    // Android reports a server closing a too-large upload as a network failure.
+    if (e instanceof ApiError && e.status === 0) {
+      throw new ApiError('Photo upload failed. Check your connection and try again with fewer photos.', 0);
+    }
+    throw e;
+  }
 }

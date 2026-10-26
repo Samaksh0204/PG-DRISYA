@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, uploadImages } from '../services/api';
+import { prepareForUpload } from '../utils/images';
 import { Avatar, Button, Chip, ErrorText, Field, Icon } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
@@ -37,7 +38,7 @@ export function EditProfileScreen() {
     const a = result.assets[0];
     setUploading(true);
     try {
-      const [url] = await uploadImages([{ uri: a.uri, name: a.fileName || `avatar_${Date.now()}.jpg`, type: a.mimeType || 'image/jpeg' }]);
+      const [url] = await uploadImages(await prepareForUpload([a]));
       setAvatar(url);
     } catch (e: any) {
       Alert.alert('Upload failed', e.message);
