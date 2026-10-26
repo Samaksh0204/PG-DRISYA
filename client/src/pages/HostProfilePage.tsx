@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Star, CalendarDays, MapPin, UserX } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { IdentityBadge } from '../components/IdentityVerification';
 import { fetchPublicProfile } from '../lib/api';
 import { ListingCard } from '../components/ListingCard';
 import { Avatar, EmptyState, PageLoader, Stars } from '../components/ui';
@@ -36,7 +37,8 @@ export function HostProfilePage() {
             <div><p className="font-bold">{new Date(user.createdAt).getFullYear()}</p><p className="text-xs text-ink-500">Joined</p></div>
           </div>
           <ul className="mt-4 space-y-2 text-left text-sm text-ink-700 dark:text-ink-300">
-            {user.verified && <li className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-teal-600" /> Identity verified by Drisya</li>}
+            {user.identityVerified && <li className="flex items-center gap-2"><IdentityBadge /> Identity verified through our authorised partner</li>}
+            {user.verified && <li className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-teal-600" /> Host checked by the Drisya team</li>}
             {user.city && <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Lives in {user.city}</li>}
             <li className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Member since {formatDate(user.createdAt)}</li>
             {user.responseRate > 0 && <li className="text-xs text-ink-500">Responds {user.responseTime} · {user.responseRate}% response rate</li>}

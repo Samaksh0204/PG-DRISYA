@@ -6,6 +6,9 @@ const Visit = require('../models/Visit');
 const Booking = require('../models/Booking');
 const Report = require('../models/Report');
 const Inquiry = require('../models/Inquiry');
+const IdentityVerification = require('../models/IdentityVerification');
+const Block = require('../models/Block');
+const PushToken = require('../models/PushToken');
 const { notify } = require('../utils/notify');
 
 // Permanently deletes an account (required by Google Play / App Store and the DPDP Act).
@@ -50,6 +53,9 @@ async function deleteAccount(userId) {
 
   await Promise.all([
     Favorite.deleteMany({ userId: user._id }),
+    IdentityVerification.deleteMany({ userId: user._id }),
+    PushToken.deleteMany({ userId: user._id }),
+    Block.deleteMany({ $or: [{ blockerId: user._id }, { blockedId: user._id }] }),
     Notification.deleteMany({ userId: user._id }),
     Report.deleteMany({ reporterId: user._id }),
     Inquiry.updateMany({ userId: user._id }, { $unset: { userId: 1 } }),

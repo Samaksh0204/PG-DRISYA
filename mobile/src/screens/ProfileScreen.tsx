@@ -1,138 +1,150 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { becomeOwner } from '../services/api';
+import { Avatar, Badge, Button, CountBadge, Empty, ListRow } from '../components/ui';
 import { colors } from '../theme/colors';
-import { spacing, radius, shadow } from '../theme/spacing';
+import { spacing, radius } from '../theme/spacing';
+import { formatDate } from '../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ProfileScreen() {
   const nav = useNavigation<Nav>();
-  const { user, logout, setSession } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { user, logout, setSession, unreadNotifications } = useAuth();
+
+  const infoLinks = (
+    <View style={styles.group}>
+      <ListRow icon="headset-outline" label="Drisya Expert" sub="Free help shortlisting PGs" onPress={() => nav.navigate('Expert')} />
+      <ListRow icon="shield-checkmark-outline" label="Trust & Safety" onPress={() => nav.navigate('Info', { page: 'trust' })} />
+      <ListRow icon="pricetag-outline" label="Pricing" onPress={() => nav.navigate('Info', { page: 'pricing' })} />
+      <ListRow icon="help-circle-outline" label="Help centre" onPress={() => nav.navigate('Info', { page: 'help' })} />
+      <ListRow icon="document-text-outline" label="Terms & Privacy" onPress={() => nav.navigate('Info', { page: 'terms' })} />
+    </View>
+  );
 
   if (!user) {
     return (
-      <View style={styles.guestWrap}>
-        <Text style={styles.guestIcon}>👤</Text>
-        <Text style={styles.guestTitle}>Sign in to see your profile</Text>
-        <TouchableOpacity style={styles.signInBtn} onPress={() => nav.navigate('Login')}>
-          <Text style={styles.signInBtnText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingBottom: 40 }}>
+        <Empty icon="person-outline" title="Your PG Drisya account" desc="Sign in to save PGs, message owners, book visits and manage your stay.">
+          <Button title="Sign in" onPress={() => nav.navigate('Login')} />
+          <Button variant="outline" title="Create an account" onPress={() => nav.navigate('Register')} style={{ marginTop: spacing.sm }} />
+        </Empty>
+        <Text style={styles.groupTitle}>Learn more</Text>
+        {infoLinks}
+      </ScrollView>
     );
   }
 
-  const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=ff4d3d&color=fff&size=200`;
-
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to sign out?', [
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: logout },
+      { text: 'Sign out', style: 'destructive', onPress: logout },
     ]);
   };
 
+  const becomeHost = () => Alert.alert('Become a host?', 'Your account will also be able to list PGs. You can still search and book as a tenant.', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Continue', onPress: async () => {
+        try { const r = await becomeOwner(); await setSession(r.token, r.user); nav.navigate('HostDashboard'); } catch (e: any) { Alert.alert('Error', e.message); }
+      },
+    },
+  ]);
+
   const isHost = user.role === 'owner' || user.role === 'admin';
-  const menuItems = [
-    { icon: '🧳', label: 'My bookings & visits', onPress: () => nav.navigate('Trips') },
-    ...(isHost
-      ? [
-          { icon: '🏢', label: 'Host dashboard', onPress: () => nav.navigate('HostDashboard') },
-          { icon: '📥', label: 'Booking & visit requests', onPress: () => nav.navigate('HostRequests') },
-        ]
-      : [{
-          icon: '🏢', label: 'List your PG', onPress: () => Alert.alert('Become a host?', 'Your account will also be able to list PGs.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Continue', onPress: async () => { try { const r = await becomeOwner(); await setSession(r.token, r.user); nav.navigate('HostDashboard'); } catch (e: any) { Alert.alert('Error', e.message); } } },
-          ]),
-        }]),
-    { icon: '✏️', label: 'Edit profile', onPress: () => nav.navigate('EditProfile') },
-    { icon: '🔔', label: 'Notifications', onPress: () => nav.navigate('Notifications') },
-    { icon: '⚙️', label: 'Account settings', onPress: () => nav.navigate('AccountSettings') },
-  ];
+  const checklist = [
+    !user.emailVerified && { label: 'Confirm your email', onPress: () => nav.navigate('AccountSettings') },
+    !user.phone && { label: 'Add a phone number', onPress: () => nav.navigate('EditProfile') },
+    user.identityStatus !== 'verified' && { label: 'Verify your identity', onPress: () => nav.navigate('Aadhaar') },
+  ].filter(Boolean) as { label: string; onPress: () => void }[];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Profile header */}
-      <View style={styles.profileHeader}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.xl }]}>
+        <View style={styles.headerAccent} />
+        <Avatar uri={user.avatar} name={user.fullName} size={84} />
         <Text style={styles.name}>{user.fullName}</Text>
-        <View style={styles.roleTag}>
-          <Text style={styles.roleTagText}>{user.role === 'admin' ? '🛡 Admin' : user.role === 'owner' ? '🔑 Host' : '🏠 Tenant'}</Text>
+        <Text style={styles.email}>{user.email}</Text>
+        <View style={styles.badges}>
+          <Badge solid label={user.role === 'admin' ? 'Admin' : user.role === 'owner' ? 'Host' : 'Tenant'} icon={user.role === 'admin' ? 'shield-checkmark' : user.role === 'owner' ? 'key' : 'home'} />
+          {user.identityStatus === 'verified' && <Badge solid label="ID verified" icon="finger-print" tone="ink" />}
         </View>
-        {user.verified && (
-          <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>✓ Verified</Text>
-          </View>
+        <Text style={styles.since}>Member since {formatDate(user.createdAt)}</Text>
+      </View>
+
+      {checklist.length > 0 && (
+        <View style={styles.checklist}>
+          <Text style={styles.checkTitle}>Complete your profile</Text>
+          {checklist.map((c) => (
+            <Text key={c.label} style={styles.checkItem} onPress={c.onPress}>• {c.label}  ›</Text>
+          ))}
+        </View>
+      )}
+
+      <Text style={styles.groupTitle}>Your stays</Text>
+      <View style={styles.group}>
+        <ListRow icon="key-outline" label="My bookings & visits" onPress={() => nav.navigate('Trips')} />
+        <ListRow icon="heart-outline" label="Wishlist" onPress={() => nav.navigate('MainTabs', { screen: 'Favorites' })} />
+        <ListRow icon="notifications-outline" label="Notifications" onPress={() => nav.navigate('Notifications')} right={<CountBadge count={unreadNotifications} />} />
+      </View>
+
+      <Text style={styles.groupTitle}>Hosting</Text>
+      <View style={styles.group}>
+        {isHost ? (
+          <>
+            <ListRow icon="business-outline" label="Host dashboard" sub="Listings, stats and reviews" onPress={() => nav.navigate('HostDashboard')} />
+            <ListRow icon="file-tray-outline" label="Booking & visit requests" onPress={() => nav.navigate('HostRequests')} />
+            <ListRow icon="add-circle-outline" label="Add a new PG" onPress={() => nav.navigate('AddListing', {})} />
+            <ListRow icon="person-outline" label="View my public profile" onPress={() => nav.navigate('HostProfile', { id: user.id, name: user.fullName })} />
+          </>
+        ) : (
+          <ListRow icon="business-outline" label="List your PG" sub="Free during launch" onPress={becomeHost} />
         )}
       </View>
 
-      {/* Info card */}
-      <View style={[styles.infoCard, shadow.card]}>
-        {[
-          { label: 'Email', value: user.email },
-          { label: 'Phone', value: user.phone || 'Not set' },
-          { label: 'City', value: user.city || 'Not set' },
-          { label: 'Gender', value: user.gender || 'Not set' },
-          { label: 'Member since', value: new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) },
-        ].map((item) => (
-          <View key={item.label} style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{item.label}</Text>
-            <Text style={styles.infoValue}>{item.value}</Text>
+      {user.role === 'admin' && (
+        <>
+          <Text style={styles.groupTitle}>Admin</Text>
+          <View style={styles.group}>
+            <ListRow icon="grid-outline" label="Admin console" sub="Moderation, reports, users, inquiries" onPress={() => nav.navigate('Admin')} />
           </View>
-        ))}
+        </>
+      )}
+
+      <Text style={styles.groupTitle}>Account</Text>
+      <View style={styles.group}>
+        <ListRow icon="create-outline" label="Edit profile" onPress={() => nav.navigate('EditProfile')} />
+        <ListRow icon="finger-print" label="Identity verification" sub={{ verified: 'Verified', pending: 'Pending', rejected: 'Not approved — try again', unverified: 'Not verified' }[user.identityStatus || 'unverified']} onPress={() => nav.navigate('Aadhaar')} />
+        <ListRow icon="settings-outline" label="Account settings" sub="Email, password, data, delete account" onPress={() => nav.navigate('AccountSettings')} />
       </View>
 
-      {/* Menu */}
-      <View style={styles.menu}>
-        {menuItems.map((item) => (
-          <TouchableOpacity key={item.label} style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
-            <Text style={styles.menuIcon}>{item.icon}</Text>
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <Text style={styles.groupTitle}>Learn more</Text>
+      {infoLinks}
 
-      {/* Logout */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Sign Out</Text>
-      </TouchableOpacity>
+      <View style={[styles.group, { marginTop: spacing.xl }]}>
+        <ListRow icon="log-out-outline" label="Sign out" danger onPress={handleLogout} />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.ink[50] },
-
-  guestWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, padding: spacing['2xl'] },
-  guestIcon: { fontSize: 56, marginBottom: spacing.lg },
-  guestTitle: { fontSize: 18, fontWeight: '600', color: colors.ink[700], marginBottom: spacing.xl },
-  signInBtn: { backgroundColor: colors.coral[500], borderRadius: radius.lg, paddingHorizontal: spacing['3xl'], paddingVertical: spacing.md },
-  signInBtnText: { color: colors.white, fontWeight: '700', fontSize: 16 },
-
-  profileHeader: { backgroundColor: colors.coral[500], alignItems: 'center', paddingTop: 60, paddingBottom: spacing['3xl'] },
-  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: colors.white },
+  container: { flex: 1, backgroundColor: colors.page },
+  header: { backgroundColor: colors.ink[900], alignItems: 'center', paddingBottom: spacing['2xl'], overflow: 'hidden' },
+  headerAccent: { position: 'absolute', right: -80, top: -60, width: 220, height: 220, borderRadius: 110, backgroundColor: colors.brand[700], opacity: 0.35 },
   name: { fontSize: 22, fontWeight: '800', color: colors.white, marginTop: spacing.md },
-  roleTag: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.full, paddingHorizontal: spacing.lg, paddingVertical: 4, marginTop: spacing.sm },
-  roleTagText: { color: colors.white, fontSize: 13, fontWeight: '600' },
-  verifiedBadge: { marginTop: spacing.sm },
-  verifiedText: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '600' },
-
-  infoCard: { backgroundColor: colors.white, margin: spacing.lg, borderRadius: radius.lg, padding: spacing.lg },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.ink[100] },
-  infoLabel: { fontSize: 13, color: colors.ink[500] },
-  infoValue: { fontSize: 14, fontWeight: '600', color: colors.ink[900] },
-
-  menu: { marginHorizontal: spacing.lg, backgroundColor: colors.white, borderRadius: radius.lg, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.ink[100] },
-  menuIcon: { fontSize: 18, marginRight: spacing.md },
-  menuLabel: { flex: 1, fontSize: 15, color: colors.ink[900], fontWeight: '500' },
-  menuArrow: { fontSize: 22, color: colors.ink[400] },
-
-  logoutBtn: { marginHorizontal: spacing.lg, marginTop: spacing.xl, borderWidth: 1, borderColor: colors.red[500], borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' },
-  logoutText: { color: colors.red[500], fontSize: 15, fontWeight: '600' },
+  email: { fontSize: 13, color: colors.ink[300], marginTop: 2 },
+  badges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  since: { fontSize: 12, color: colors.ink[300], marginTop: spacing.sm },
+  checklist: { margin: spacing.lg, marginBottom: 0, backgroundColor: colors.brand[50], borderWidth: 1, borderColor: colors.brand[100], borderRadius: radius.xl, padding: spacing.lg },
+  checkTitle: { fontSize: 15, fontWeight: '700', color: colors.ink[900], marginBottom: 6 },
+  checkItem: { fontSize: 14, color: colors.brand[800], fontWeight: '600', paddingVertical: 4 },
+  groupTitle: { fontSize: 12, fontWeight: '700', color: colors.ink[500], textTransform: 'uppercase', letterSpacing: 0.8, marginTop: spacing.xl, marginBottom: spacing.sm, marginHorizontal: spacing.lg + 4 },
+  group: { marginHorizontal: spacing.lg, backgroundColor: colors.white, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.ink[200], marginTop: 0 },
 });

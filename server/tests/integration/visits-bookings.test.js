@@ -82,9 +82,10 @@ describe('bookings (request to book)', () => {
     expect((await Property.findById(property._id)).roomsAvailable).toBe(1);
     expect(await Notification.exists({ userId: tenant.user._id, title: 'Booking accepted' })).toBeTruthy();
 
-    // After acceptance the tenant can see the owner's phone number
+    // Even after acceptance the host's number is not shared (contact is in-app only)
     const detail = await api().get(`/api/properties/${property._id}`).set(tenant.auth);
-    expect(detail.body.owner.phone).toBe(owner.user.phone);
+    expect(detail.body.owner.phone).toBeUndefined();
+    expect(JSON.stringify(detail.body)).not.toContain(owner.user.phone);
     expect(detail.body.viewer.hasStayed).toBe(true);
   });
 

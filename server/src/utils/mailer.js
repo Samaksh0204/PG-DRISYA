@@ -25,9 +25,9 @@ const escapeHtml = (s) =>
 // Best-effort: never throws, so a mail outage can't break a request.
 async function sendMail({ to, subject, text, actionUrl, actionLabel }) {
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
-    <h2 style="color:#ff4d3d">PG Drisya</h2>
+    <h2 style="color:#102A43">PG Drisya</h2>
     <p style="white-space:pre-line">${escapeHtml(text)}</p>
-    ${actionUrl ? `<p><a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#ff4d3d;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${escapeHtml(actionLabel || 'Open')}</a></p><p style="font-size:12px;color:#6b7280">Or paste this link into your browser: ${escapeHtml(actionUrl)}</p>` : ''}
+    ${actionUrl ? `<p><a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#14B8A6;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${escapeHtml(actionLabel || 'Open')}</a></p><p style="font-size:12px;color:#6b7280">Or paste this link into your browser: ${escapeHtml(actionUrl)}</p>` : ''}
     <p style="font-size:12px;color:#6b7280">You received this because of activity on your PG Drisya account.</p>
   </div>`;
   const fullText = actionUrl ? `${text}\n\n${actionLabel || 'Link'}: ${actionUrl}` : text;

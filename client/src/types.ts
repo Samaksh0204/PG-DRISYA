@@ -39,9 +39,10 @@ export interface Owner {
   id: string;
   name: string;
   avatar: string;
-  phone?: string;
+  // No phone: host numbers are never sent to tenants (contact is in-app messages only).
   joinedYear: number;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   rating: number;
@@ -85,6 +86,8 @@ export interface PropertyListing {
   roomsAvailable: number;
   rules: string[];
   createdAt?: string;
+  // false = lat/lng are rounded to ~1 km (public view); true for owner / confirmed tenants.
+  exactLocation?: boolean;
 }
 
 export interface City {
@@ -105,6 +108,8 @@ export interface Conversation {
   participantAvatar: string;
   participantRole: Role;
   participantDeleted?: boolean;
+  blockedByMe?: boolean;
+  blockedMe?: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unread: number;
@@ -117,6 +122,10 @@ export interface Message {
   text: string;
   time: string;
   read: boolean;
+  clientId?: string | null;
+  // Client-only state for messages that haven't reached the server yet.
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface NotificationItem {
@@ -198,7 +207,38 @@ export interface UserProfile {
   verified: boolean;
   emailVerified: boolean;
   aadhaarVerified: boolean;
+  identityStatus?: IdentityStatus;
+  identityVerifiedAt?: string | null;
   createdAt: string;
+}
+
+// Identity (Aadhaar) verification through an authorised provider — separate from
+// email confirmation and from the admin "Verified" badge on listings/hosts.
+export type IdentityStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export interface IdentityAttempt {
+  id: string;
+  status: 'pending' | 'verified' | 'rejected' | 'failed' | 'cancelled' | 'expired' | 'revoked';
+  provider: string;
+  reason: string;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface IdentityState {
+  status: IdentityStatus;
+  verifiedAt: string | null;
+  available: boolean;
+  latestAttempt: IdentityAttempt | null;
+}
+
+export interface ThreadPage {
+  messages: Message[];
+  hasMore: boolean;
+  participant: { id: string; fullName: string; avatar: string; role: Role; deleted: boolean; suspended: boolean };
+  property: { id: string; title: string; photo: string } | null;
+  blockedByMe: boolean;
+  blockedMe: boolean;
 }
 
 export interface PublicProfile {
@@ -209,6 +249,7 @@ export interface PublicProfile {
   city: string;
   bio: string;
   verified: boolean;
+  identityVerified?: boolean;
   responseRate: number;
   responseTime: string;
   createdAt: string;
@@ -223,6 +264,19 @@ export interface SiteStats {
   cities: number;
   reviews: number;
   avgRating: number;
+}
+
+export type AnalyticsEventName = 'search' | 'listing_view' | 'visit_requested' | 'booking_requested' | 'message_sent' | 'signup';
+
+export interface AnalyticsReport {
+  days: number;
+  totals: Record<AnalyticsEventName, { count: number; users: number }>;
+  daily: { name: AnalyticsEventName; day: string; count: number }[];
+  platforms: Partial<Record<'web' | 'ios' | 'android' | 'unknown', number>>;
+  topSearches: { term: string; count: number }[];
+  zeroResultSearches: { total: number; terms: { term: string; count: number }[] };
+  topListings: { propertyId: string; title: string; city: string; views: number }[];
+  funnel: { listingViews: number; visitRequests: number; bookingRequests: number; viewToVisitPct: number; viewToBookingPct: number };
 }
 
 export type ReportReason = 'fake_listing' | 'inaccurate' | 'scam' | 'harassment' | 'unsafe' | 'offensive' | 'discrimination' | 'other';

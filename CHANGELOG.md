@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.0.0 — Privacy, identity verification and messaging
+- **Map no longer covers dialogs:** dialogs (book a visit, message, review, report) now open in their own top layer above the page, so map layers can't draw over them. They also keep keyboard focus inside, close on Escape and return focus to the button that opened them. Covered by unit tests and a Playwright check at desktop and phone sizes.
+- **Listing privacy:** public search, listing pages, wishlists and host profiles return only public fields. Map positions are rounded to ~1 km until a visit is confirmed or a booking accepted. Hosts see a tenant's phone only after confirming. Moderation notes are visible only to the owner and admins.
+- **Identity verification:** Aadhaar verification through an authorised provider (server-side session plus a signed, timestamped webhook), admin manual review and an "ID verified" badge, on the website and in the app. Shows "Verification unavailable" until a provider is configured (`IDV_*` env vars). No Aadhaar numbers, OTPs or documents are stored. The old simulated check can no longer run in production.
+- **Messaging:** paginated history, 5-second sync while a chat is open, safe retries (no duplicate messages), offline and failed-send states, blocking, and a safety tip when contact details are shared. All of this works the same on the website and in the app.
+- **Security:** per-route rate limits (search, listing pages, profiles, messages, verification), search page size capped at 50, uploads checked by file signature, and an audit log for verification, moderation and account security actions.
+- **Mobile:** login token moved to secure device storage (existing sign-ins carry over automatically), plus the new verification and chat screens.
+- API reference for both apps: `docs/API.md`.
+
 ## 4.2.0 — Speed
 - **Website loads less up front:** pages other than the homepage now load when first opened (main download 104 KB → 67 KB gzipped), and Search, listing and login pages are fetched in the background once the homepage is idle.
 - **Right-sized images:** listing photos are requested at the size they're shown (cards ~480px instead of 1200px) in WebP/AVIF where the image host supports it (Cloudinary, Pexels), with sharp 2× versions for high-density screens. Images below the fold load lazily; the main listing photo loads first.

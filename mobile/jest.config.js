@@ -5,6 +5,9 @@ process.env.EXPO_PUBLIC_WEB_URL = 'https://web.test';
 
 module.exports = {
   "preset": "jest-expo",
+  // The first run after a change compiles React Native + Expo; screen tests can
+  // take 15-20s on a cold cache (always the case in CI), well past the 5s default.
+  "testTimeout": 60000,
   "setupFiles": [
     "./jest.setup.js"
   ],

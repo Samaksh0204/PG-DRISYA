@@ -72,10 +72,20 @@ The website's `VITE_*` settings (contact details, Grievance Officer, social link
 5. Store listings: privacy policy URL = `https://yourdomain.com/#/privacy`; account-deletion URL = `https://yourdomain.com/#/profile/edit` (deletion is also in the app under Profile → Account settings). Fill in Play's Data Safety form and Apple's privacy labels using section 1 of the Privacy Policy.
 6. Accounts: Google Play Console (one-time US$25) and Apple Developer Program (US$99/year).
 
+### Push notifications (mobile)
+The server sends pushes for new messages, booking and visit requests and their replies, reviews and verification results. To receive them, the app needs a one-time setup:
+1. In `mobile/`, run `eas init`. It links the app to your Expo account and writes `extra.eas.projectId` into `app.json`. Commit that change.
+2. **Android:** create a Firebase project, add an Android app with package `com.drisya.pg`, and upload its FCM V1 service-account key with `eas credentials` (Android → Push Notifications). **iOS:** `eas credentials` can create the APNs key for you.
+3. Test with a development or preview build (`eas build --profile preview -p android`). **Expo Go on Android can't receive push notifications**; Expo Go on iPhone can, once step 1 is done.
+4. People are asked for permission the first time they sign in. If they decline, everything else still works; they just don't get pushes.
+
+### Usage analytics
+Admins see an **Analytics** tab (website and app): searches, listing views, visit and booking requests, messages and sign-ups, with a daily trend, web/Android/iPhone split, top searches, searches that found nothing, and most-viewed listings. Events are recorded by the server, store no names, emails, phone numbers or IP addresses, and are deleted after about 13 months. Mention this usage measurement in your Privacy Policy.
+
 ## 6. Known limitations (decide later)
 
 - **No online payments.** Rent and deposit are paid to the host at move-in. To take payments, integrate Razorpay/Cashfree (needs a business account and KYC) and add a payment step to bookings.
-- **No real ID/KYC integration** (see section 1).
-- **Messages refresh every 15 seconds** instead of instantly (no websockets), and there are no push notifications yet. In-app and email notifications work.
-- Login tokens are stored in the browser's local storage. This is standard for single-page apps, but it means a script-injection bug could steal sessions. The strict Content Security Policy applied when the server hosts the site reduces this risk.
+- **Identity verification needs a provider contract.** The integration (session start, signed webhook, admin review, statuses on web and mobile) is built, but until `IDV_PROVIDER`, `IDV_API_BASE_URL`, `IDV_API_KEY` and `IDV_WEBHOOK_SECRET` are set for an authorised provider, both apps show "Verification unavailable". The `http` adapter in `server/src/services/identityProvider.js` uses a generic request format; map it to your provider's API when you sign up, and point the provider's webhook at `https://yourdomain.com/api/identity/webhook`.
+- **Messages are near-real-time, not instant.** An open chat checks for new messages every 5 seconds and the inbox every 15 (polling, no websockets). There are no push notifications yet; in-app and email notifications work.
+- On mobile, the login token is kept in the device's secure storage (Keychain / Keystore). On the website, login tokens are stored in the browser's local storage. This is standard for single-page apps, but it means a script-injection bug could steal sessions. The strict Content Security Policy applied when the server hosts the site reduces this risk.
 - Dependency advisories: `server` and `client` production dependencies audit clean. `client` has 3 moderate dev-only advisories in Tailwind 3's build-time CSS parser (fix = migrate to Tailwind 4). `mobile` reports 5 in Expo's command-line tool (`@expo/cli` → `node-forge`, `zod`). That tool is installed with the `expo` package but runs only on your computer and isn't part of the built app; there's no upstream fix yet, so re-check with `npm audit` when upgrading Expo.

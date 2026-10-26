@@ -44,7 +44,7 @@ export function ListingsMap({ listings, onSelect, className = 'h-[70vh]' }: { li
   const located = useMemo(() => listings.filter(hasCoords), [listings]);
   const points = useMemo(() => located.map((l) => [l.lat, l.lng] as [number, number]), [located]);
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700 ${className}`}>
+    <div className={`relative isolate z-0 overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700 ${className}`}>
       <MapContainer center={INDIA_CENTER} zoom={5} scrollWheelZoom className="h-full w-full">
         <TileLayer url={TILE_URL} attribution={ATTRIBUTION} />
         <FitBounds points={points} />
@@ -80,7 +80,7 @@ export function ListingLocationMap({ lat, lng, label }: { lat: number; lng: numb
     );
   }
   return (
-    <div className="h-72 overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700">
+    <div className="relative isolate z-0 h-72 overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700">
       <MapContainer center={[lat, lng]} zoom={14} scrollWheelZoom={false} className="h-full w-full">
         <TileLayer url={TILE_URL} attribution={ATTRIBUTION} />
         <Circle center={[lat, lng]} radius={400} pathOptions={{ color: 'rgb(20 184 166)', fillColor: 'rgb(20 184 166)', fillOpacity: 0.15 }} />

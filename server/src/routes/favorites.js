@@ -6,6 +6,7 @@ const { writeLimiter } = require('../middleware/rateLimiters');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { isObjectId } = require('../utils/validators');
+const { publicProperty } = require('../utils/serializers');
 
 const router = express.Router();
 
@@ -18,7 +19,11 @@ router.get(
       .populate('propertyId')
       .sort({ createdAt: -1 })
       .limit(500);
-    res.json({ favorites: favs.filter((f) => f.propertyId && f.propertyId.status !== 'deleted') });
+    res.json({
+      favorites: favs
+        .filter((f) => f.propertyId && f.propertyId.status !== 'deleted')
+        .map((f) => ({ _id: f._id, createdAt: f.createdAt, propertyId: publicProperty(f.propertyId) })),
+    });
   })
 );
 

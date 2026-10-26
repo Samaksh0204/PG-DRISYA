@@ -1,133 +1,136 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../context/AuthContext';
+import React, { useCallback, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList, NotificationItem } from '../types';
-import { fetchNotifications, markAllNotificationsRead } from '../services/api';
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../services/api';
+import { Empty, ErrorText, Icon, ScreenLoader, type IconName } from '../components/ui';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
+import { timeAgo } from '../utils/format';
+import { routeForNotification } from '../navigation/notificationRoute';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const ICON_MAP: Record<string, string> = {
-  info: 'ℹ️',
-  listing: '🏠',
-  review: '⭐',
-  visit: '📅',
-  system: '🔔',
+const ICON_MAP: Record<string, IconName> = {
+  info: 'information-circle-outline',
+  listing: 'business-outline',
+  review: 'star-outline',
+  visit: 'calendar-outline',
+  booking: 'key-outline',
+  message: 'chatbubbles-outline',
+  report: 'flag-outline',
+  account: 'person-outline',
+  system: 'notifications-outline',
 };
 
 export function NotificationsScreen() {
   const nav = useNavigation<Nav>();
-  const { user } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { user, refreshCounts } = useAuth();
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [more, setMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async (pg = 1) => {
+    if (pg > 1) setMore(true);
     try {
-      const data = await fetchNotifications();
-      setNotifications(data.notifications);
-    } catch {} finally {
+      const data = await fetchNotifications(pg);
+      setItems((prev) => (pg === 1 ? data.notifications : [...prev, ...data.notifications]));
+      setPage(pg);
+      setPages(data.pages || 1);
+      setError('');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
       setLoading(false);
       setRefreshing(false);
+      setMore(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(1); }, [load]));
+
+  const markAll = async () => {
+    try {
+      await markAllNotificationsRead();
+      setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+      refreshCounts();
+    } catch (e: any) {
+      setError(e.message);
     }
   };
 
-  useEffect(() => { load(); }, []);
-
-  const handleMarkAllRead = async () => {
-    try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {}
-  };
-
   const handlePress = (item: NotificationItem) => {
-    const host = user?.role === 'owner' || user?.role === 'admin';
-    const incoming = /request|instant booking|cancelled by the tenant/i.test(item.title + item.body);
-    if (item.type === 'message') (nav as any).navigate('MainTabs', { screen: 'Inbox' });
-    else if (item.type === 'booking' || item.type === 'visit') nav.navigate(host && incoming ? 'HostRequests' : 'Trips');
-    else if (item.type === 'listing' && /your listing/i.test(item.title)) nav.navigate('HostDashboard');
-    else if (item.data?.propertyId) nav.navigate('ListingDetail', { id: item.data.propertyId });
+    if (!item.read) {
+      setItems((prev) => prev.map((n) => (n._id === item._id ? { ...n, read: true } : n)));
+      markNotificationRead(item._id).then(refreshCounts).catch(() => {});
+    }
+    const dest = routeForNotification(item, user?.role);
+    // The list item for a message has no sender name, so it opens the inbox.
+    if (dest && dest.name !== 'Notifications') (nav.navigate as any)(dest.name, dest.params);
   };
 
-  const timeAgo = (date: string) => {
-    const diff = Date.now() - new Date(date).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
-
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.coral[500]} /></View>;
-  }
+  if (loading) return <ScreenLoader />;
+  const unread = items.filter((n) => !n.read).length;
 
   return (
-    <View style={styles.container}>
-      {notifications.some((n) => !n.read) && (
-        <TouchableOpacity style={styles.markAllBtn} onPress={handleMarkAllRead}>
-          <Text style={styles.markAllText}>Mark all as read</Text>
+    <FlatList
+      style={styles.container}
+      data={items}
+      keyExtractor={(item) => item._id}
+      contentContainerStyle={{ flexGrow: 1 }}
+      ListHeaderComponent={
+        <>
+          {error ? <View style={{ paddingHorizontal: spacing.lg }}><ErrorText>{error}</ErrorText></View> : null}
+          {unread > 0 && (
+            <View style={styles.headerRow}>
+              <Text style={styles.headerText}>{unread} unread</Text>
+              <TouchableOpacity onPress={markAll} style={styles.markAll}>
+                <Icon name="checkmark-done" size={16} color={colors.brand[700]} />
+                <Text style={styles.markAllText}>Mark all as read</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      }
+      ListEmptyComponent={<Empty icon="notifications-outline" title="You're all caught up" desc="Updates on visits, bookings, messages and reviews show up here." />}
+      renderItem={({ item }) => (
+        <TouchableOpacity style={[styles.item, !item.read && styles.unread]} onPress={() => handlePress(item)} activeOpacity={0.7}>
+          <View style={[styles.iconWrap, !item.read && { backgroundColor: colors.brand[500] }]}>
+            <Icon name={ICON_MAP[item.type] || 'notifications-outline'} size={18} color={item.read ? colors.brand[600] : colors.white} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, !item.read && { fontWeight: '800' }]}>{item.title}</Text>
+            <Text style={styles.body} numberOfLines={3}>{item.body}</Text>
+            <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+          </View>
+          {!item.read && <View style={styles.dot} />}
         </TouchableOpacity>
       )}
-
-      {notifications.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyIcon}>🔔</Text>
-          <Text style={styles.emptyTitle}>No notifications</Text>
-          <Text style={styles.emptySub}>You're all caught up!</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.notifItem, !item.read && styles.notifUnread]}
-              onPress={() => handlePress(item)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.notifIcon}>{ICON_MAP[item.type] || '🔔'}</Text>
-              <View style={styles.notifBody}>
-                <Text style={styles.notifTitle}>{item.title}</Text>
-                <Text style={styles.notifText} numberOfLines={2}>{item.body}</Text>
-                <Text style={styles.notifTime}>{timeAgo(item.createdAt)}</Text>
-              </View>
-              {!item.read && <View style={styles.unreadDot} />}
-            </TouchableOpacity>
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.ink[100] }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.coral[500]} />}
-        />
-      )}
-    </View>
+      onEndReached={() => { if (!more && page < pages) load(page + 1); }}
+      onEndReachedThreshold={0.4}
+      ListFooterComponent={more ? <ActivityIndicator color={colors.brand[500]} style={{ margin: spacing.lg }} /> : undefined}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={colors.brand[500]} colors={[colors.brand[500]]} />}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  markAllBtn: { alignItems: 'flex-end', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  markAllText: { fontSize: 13, color: colors.coral[600], fontWeight: '600' },
-
-  notifItem: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, alignItems: 'flex-start' },
-  notifUnread: { backgroundColor: colors.coral[50] },
-  notifIcon: { fontSize: 24, marginRight: spacing.md, marginTop: 2 },
-  notifBody: { flex: 1 },
-  notifTitle: { fontSize: 14, fontWeight: '700', color: colors.ink[900] },
-  notifText: { fontSize: 13, color: colors.ink[600], marginTop: 2, lineHeight: 18 },
-  notifTime: { fontSize: 11, color: colors.ink[400], marginTop: 4 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral[500], marginTop: 6 },
-
-  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing['2xl'] },
-  emptyIcon: { fontSize: 56, marginBottom: spacing.lg },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: colors.ink[900] },
-  emptySub: { fontSize: 14, color: colors.ink[500], marginTop: spacing.sm },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.ink[200] },
+  headerText: { fontSize: 13, fontWeight: '700', color: colors.ink[700] },
+  markAll: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  markAllText: { fontSize: 13, color: colors.brand[700], fontWeight: '700' },
+  item: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink[200] },
+  unread: { backgroundColor: colors.brand[50] },
+  iconWrap: { width: 38, height: 38, borderRadius: radius.lg, backgroundColor: colors.brand[50], alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 14, fontWeight: '700', color: colors.ink[900] },
+  body: { fontSize: 13, color: colors.ink[600], marginTop: 2, lineHeight: 18 },
+  time: { fontSize: 11, color: colors.ink[400], marginTop: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand[500], marginTop: 6 },
 });

@@ -1,265 +1,246 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, ActivityIndicator, RefreshControl, Modal,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Modal, ScrollView, Switch } from 'react-native';
+import { useNavigation, useRoute, type CompositeNavigationProp, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
-import type { RootStackParamList, TabParamList, PropertyListing } from '../types';
-import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { fetchListings } from '../services/api';
+import type { RootStackParamList, TabParamList, PropertyListing } from '../types';
+import { searchListings } from '../services/api';
 import { ListingCard } from '../components/ListingCard';
 import { SkeletonCard } from '../components/SkeletonCard';
+import { Button, Chip, Empty, ErrorText, Icon } from '../components/ui';
 import { useDebounce } from '../hooks/useDebounce';
+import { AMENITIES } from '../data/amenities';
 import { colors } from '../theme/colors';
 import { spacing, radius, SCREEN } from '../theme/spacing';
 
-type Nav = CompositeNavigationProp<
-  BottomTabNavigationProp<TabParamList, 'Search'>,
-  NativeStackNavigationProp<RootStackParamList>
->;
+type Nav = CompositeNavigationProp<BottomTabNavigationProp<TabParamList, 'Search'>, NativeStackNavigationProp<RootStackParamList>>;
 type Route = RouteProp<TabParamList, 'Search'>;
 
-const GENDERS = ['all', 'male', 'female', 'coed'] as const;
-const BUDGETS = [
-  { label: 'Any', min: '', max: '' },
-  { label: '< ₹5k', min: '', max: '5000' },
-  { label: '₹5k–₹10k', min: '5000', max: '10000' },
-  { label: '₹10k–₹15k', min: '10000', max: '15000' },
-  { label: '₹15k+', min: '15000', max: '' },
-] as const;
+// Same values the website sends to GET /api/properties.
 const SORT_OPTIONS = [
-  { label: 'Relevance', value: '' },
-  { label: 'Price ↑', value: 'price' },
-  { label: 'Price ↓', value: '-price' },
-  { label: 'Rating ↓', value: '-rating' },
-  { label: 'Newest', value: '-createdAt' },
-] as const;
+  { value: '', label: 'Recommended' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'rating', label: 'Top rated' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'views', label: 'Most viewed' },
+];
+const GENDERS: [string, string][] = [['', 'Anyone'], ['male', 'Men'], ['female', 'Women'], ['coed', 'Co-ed']];
+const OCCUPANCY: [string, string][] = [['', 'Any'], ['single', 'Single'], ['double', 'Double'], ['triple', 'Triple'], ['dorm', 'Dorm']];
+const BUDGETS: [string, string, string][] = [['Any', '', ''], ['< ₹5k', '', '5000'], ['₹5k–10k', '5000', '10000'], ['₹10k–15k', '10000', '15000'], ['₹15k+', '15000', '']];
+const PAGE_SIZE = 20;
+
+interface Filters {
+  city: string;
+  gender: string;
+  occupancy: string;
+  minPrice: string;
+  maxPrice: string;
+  amenities: string[];
+  verified: boolean;
+  instantBook: boolean;
+  featured: boolean;
+  sort: string;
+}
+const EMPTY: Filters = { city: '', gender: '', occupancy: '', minPrice: '', maxPrice: '', amenities: [], verified: false, instantBook: false, featured: false, sort: '' };
 
 export function SearchScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
 
-  const [query, setQuery] = useState(route.params?.city || '');
-  const [gender, setGender] = useState<string>(route.params?.gender || 'all');
-  const [budgetIdx, setBudgetIdx] = useState(0);
-  const [sortIdx, setSortIdx] = useState(0);
+  const [query, setQuery] = useState('');
+  const [f, setF] = useState<Filters>(EMPTY);
+  const [draft, setDraft] = useState<Filters>(EMPTY);
   const [listings, setListings] = useState<PropertyListing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const reqId = useRef(0);
 
-  const debouncedQuery = useDebounce(query, 400);
+  const dq = useDebounce(query, 350);
 
-  // reset when route params change (e.g. from HomeScreen city tap)
+  // Links from the home screen (city tiles, quick chips, "view all").
   useEffect(() => {
-    if (route.params?.city) setQuery(route.params.city);
-    if (route.params?.gender) setGender(route.params.gender);
-  }, [route.params?.city, route.params?.gender]);
+    const p = route.params;
+    if (!p) return;
+    setQuery(p.q || '');
+    setF({ ...EMPTY, city: p.city || '', gender: p.gender || '', sort: p.sort || '', featured: !!p.featured, verified: !!p.verified, instantBook: !!p.instantBook, maxPrice: p.maxPrice || '' });
+  }, [route.params]);
 
-  const buildParams = useCallback(() => {
-    const p: Record<string, string> = { page: String(page) };
-    if (debouncedQuery.trim()) p.city = debouncedQuery.trim();
-    if (gender !== 'all') p.genderPreference = gender;
-    const b = BUDGETS[budgetIdx];
-    if (b.min) p.minPrice = b.min;
-    if (b.max) p.maxPrice = b.max;
-    const s = SORT_OPTIONS[sortIdx].value;
-    if (s) p.sort = s;
-    return p;
-  }, [debouncedQuery, gender, budgetIdx, sortIdx, page]);
+  const params = useCallback((pg: number) => ({
+    search: dq.trim() || undefined,
+    city: f.city || undefined,
+    gender: f.gender || undefined,
+    occupancy: f.occupancy || undefined,
+    minPrice: f.minPrice || undefined,
+    maxPrice: f.maxPrice || undefined,
+    amenities: f.amenities.length ? f.amenities.join(',') : undefined,
+    verified: f.verified ? 'true' : undefined,
+    instantBook: f.instantBook ? 'true' : undefined,
+    featured: f.featured ? 'true' : undefined,
+    sort: f.sort || undefined,
+    page: pg,
+    limit: PAGE_SIZE,
+  }), [dq, f]);
 
-  const load = useCallback(async (reset = false) => {
+  const load = useCallback(async (pg: number) => {
+    const id = ++reqId.current;
+    setError('');
+    if (pg === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const params = buildParams();
-      if (reset) params.page = '1';
-      const data = await fetchListings(params);
-      if (reset) {
-        setListings(data);
-        setPage(1);
-      } else {
-        setListings((prev) => [...prev, ...data]);
-      }
-      setHasMore(data.length >= 10);
-    } catch (err) {
-      console.error('Search error:', err);
+      const res = await searchListings(params(pg));
+      if (id !== reqId.current) return; // a newer search started
+      setListings((prev) => (pg === 1 ? res.listings : [...prev, ...res.listings.filter((l) => !prev.some((p) => p.id === l.id))]));
+      setTotal(res.total);
+      setPage(res.page);
+      setPages(res.pages);
+    } catch (e: any) {
+      if (id === reqId.current) setError(e.message);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (id === reqId.current) {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
     }
-  }, [buildParams]);
+  }, [params]);
 
-  // reload when filter/query changes
-  useEffect(() => {
-    setLoading(true);
-    load(true);
-  }, [debouncedQuery, gender, budgetIdx, sortIdx]);
+  useEffect(() => { load(1); }, [load]);
 
-  const onRefresh = () => { setRefreshing(true); load(true); };
   const loadMore = () => {
-    if (!hasMore || loading) return;
-    setPage((p) => p + 1);
+    if (loading || loadingMore || page >= pages) return;
+    load(page + 1);
   };
 
-  useEffect(() => {
-    if (page > 1) load();
-  }, [page]);
+  const activeCount = [f.city, f.gender, f.occupancy, f.minPrice || f.maxPrice, f.verified, f.instantBook, f.featured, ...f.amenities].filter(Boolean).length;
+  const budgetIdx = BUDGETS.findIndex(([, min, max]) => min === draft.minPrice && max === draft.maxPrice);
+  const sortLabel = SORT_OPTIONS.find((s) => s.value === f.sort)?.label || 'Recommended';
+  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setF((x) => ({ ...x, [k]: v }));
+  const setD = <K extends keyof Filters>(k: K, v: Filters[K]) => setDraft((x) => ({ ...x, [k]: v }));
 
-  const activeFilterCount = useMemo(() => {
-    let c = 0;
-    if (gender !== 'all') c++;
-    if (budgetIdx > 0) c++;
-    if (sortIdx > 0) c++;
-    return c;
-  }, [gender, budgetIdx, sortIdx]);
-
-  const renderItem = useCallback(({ item }: { item: PropertyListing }) => (
-    <View style={styles.cardWrap}>
-      <ListingCard listing={item} onPress={() => nav.navigate('ListingDetail', { id: item.id })} />
-    </View>
-  ), [nav]);
+  const openFilters = () => { setDraft(f); setFilterOpen(true); };
+  const clearAll = () => { setQuery(''); setF(EMPTY); };
 
   return (
     <View style={styles.container}>
-      {/* Search bar */}
-      <View style={styles.searchRow}>
-        <View style={styles.inputWrap}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Search city, locality..."
-            placeholderTextColor={colors.ink[400]}
-            value={query}
-            onChangeText={setQuery}
-            returnKeyType="search"
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
-              <Text style={styles.clearBtn}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterOpen(true)}>
-          <Text style={styles.filterIcon}>⚙</Text>
-          {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFilterCount}</Text></View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Quick gender chips */}
-      <View style={styles.chipRow}>
-        {GENDERS.map((g) => (
-          <TouchableOpacity
-            key={g}
-            style={[styles.chip, gender === g && styles.chipActive]}
-            onPress={() => setGender(g)}
-          >
-            <Text style={[styles.chipText, gender === g && styles.chipTextActive]}>
-              {g === 'all' ? 'All' : g === 'male' ? 'Male' : g === 'female' ? 'Female' : 'Co-ed'}
-            </Text>
+      <View style={styles.top}>
+        <View style={styles.searchRow}>
+          <View style={styles.inputWrap}>
+            <Icon name="search-outline" size={18} color={colors.ink[400]} />
+            <TextInput
+              style={styles.input}
+              placeholder="City, area or PG name"
+              placeholderTextColor={colors.ink[400]}
+              value={query}
+              onChangeText={setQuery}
+              returnKeyType="search"
+              accessibilityLabel="Search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')} accessibilityLabel="Clear search" hitSlop={8}>
+                <Icon name="close-circle" size={18} color={colors.ink[300]} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity style={[styles.filterBtn, activeCount > 0 && styles.filterBtnActive]} onPress={openFilters} accessibilityLabel="Filters">
+            <Icon name="options-outline" size={20} color={activeCount > 0 ? colors.brand[700] : colors.ink[900]} />
+            {activeCount > 0 && <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeCount}</Text></View>}
           </TouchableOpacity>
-        ))}
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
+          {GENDERS.slice(1).map(([v, l]) => <Chip key={v} label={l} active={f.gender === v} onPress={() => set('gender', f.gender === v ? '' : v)} />)}
+          <Chip label="Verified" icon="shield-checkmark-outline" active={f.verified} onPress={() => set('verified', !f.verified)} />
+          <Chip label="Instant Book" icon="flash-outline" active={f.instantBook} onPress={() => set('instantBook', !f.instantBook)} />
+          <Chip label="Meals" icon="restaurant-outline" active={f.amenities.includes('mess')} onPress={() => set('amenities', f.amenities.includes('mess') ? f.amenities.filter((a) => a !== 'mess') : [...f.amenities, 'mess'])} />
+        </ScrollView>
       </View>
 
-      {/* Results info */}
       <View style={styles.resultsBar}>
         <Text style={styles.resultsCount}>
-          {loading ? 'Searching...' : `${listings.length} PG${listings.length !== 1 ? 's' : ''} found`}
+          {loading ? 'Searching…' : `${total} PG${total !== 1 ? 's' : ''}${f.city ? ` in ${f.city}` : ''}`}
         </Text>
-        <TouchableOpacity onPress={() => setFilterOpen(true)}>
-          <Text style={styles.sortLabel}>
-            {SORT_OPTIONS[sortIdx].label} ▾
-          </Text>
+        <TouchableOpacity onPress={openFilters} style={styles.sortBtn} accessibilityLabel="Sort">
+          <Icon name="swap-vertical" size={14} color={colors.brand[700]} />
+          <Text style={styles.sortLabel}>{sortLabel}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Listings */}
+      {error ? <View style={{ paddingHorizontal: spacing.lg }}><ErrorText>{error}</ErrorText></View> : null}
+
       {loading && listings.length === 0 ? (
-        <View style={styles.skeletonGrid}>
-          <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
-        </View>
-      ) : listings.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🏠</Text>
-          <Text style={styles.emptyTitle}>No PGs found</Text>
-          <Text style={styles.emptySub}>Try adjusting your filters or search a different city.</Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => { setQuery(''); setGender('all'); setBudgetIdx(0); }}>
-            <Text style={styles.emptyBtnText}>Clear filters</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.skeletonGrid}><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></View>
       ) : (
         <FlatList
           data={listings}
           numColumns={2}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+          renderItem={({ item }) => <ListingCard listing={item} onPress={() => nav.navigate('ListingDetail', { id: item.id })} onRequireLogin={() => nav.navigate('Login')} />}
           contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.gridRow}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.coral[500]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={colors.brand[500]} colors={[colors.brand[500]]} />}
           onEndReached={loadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={loading ? <ActivityIndicator color={colors.coral[500]} style={{ marginVertical: spacing.lg }} /> : null}
+          onEndReachedThreshold={0.4}
+          ListEmptyComponent={loading ? undefined : (
+            <Empty icon="search-outline" title="No PGs match" desc="Try a different area, widen your budget or remove some filters.">
+              <Button variant="outline" title="Clear all filters" onPress={clearAll} />
+            </Empty>
+          )}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.brand[500]} style={{ marginVertical: spacing.lg }} /> : undefined}
         />
       )}
 
-      {/* Filter Modal */}
-      <Modal visible={filterOpen} transparent animationType="slide">
+      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filters & Sort</Text>
-              <TouchableOpacity onPress={() => setFilterOpen(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+              <Text style={styles.modalTitle}>Filters</Text>
+              <TouchableOpacity onPress={() => setFilterOpen(false)} accessibilityLabel="Close filters" hitSlop={8}>
+                <Icon name="close" size={24} color={colors.ink[500]} />
               </TouchableOpacity>
             </View>
+            <ScrollView style={{ maxHeight: SCREEN.height * 0.62 }} showsVerticalScrollIndicator={false}>
+              <Text style={styles.filterLabel}>Sort by</Text>
+              <View style={styles.wrap}>{SORT_OPTIONS.map((s) => <Chip key={s.value} label={s.label} active={draft.sort === s.value} onPress={() => setD('sort', s.value)} />)}</View>
 
-            {/* Budget */}
-            <Text style={styles.filterLabel}>Budget</Text>
-            <View style={styles.chipRow}>
-              {BUDGETS.map((b, i) => (
-                <TouchableOpacity key={b.label} style={[styles.chip, budgetIdx === i && styles.chipActive]} onPress={() => setBudgetIdx(i)}>
-                  <Text style={[styles.chipText, budgetIdx === i && styles.chipTextActive]}>{b.label}</Text>
-                </TouchableOpacity>
+              <Text style={styles.filterLabel}>City</Text>
+              <TextInput style={styles.cityInput} value={draft.city} onChangeText={(v) => setD('city', v)} placeholder="Any city" placeholderTextColor={colors.ink[400]} accessibilityLabel="City" />
+
+              <Text style={styles.filterLabel}>Monthly budget</Text>
+              <View style={styles.wrap}>{BUDGETS.map(([l, min, max], i) => <Chip key={l} label={l} active={budgetIdx === i} onPress={() => setDraft((x) => ({ ...x, minPrice: min, maxPrice: max }))} />)}</View>
+
+              <Text style={styles.filterLabel}>Who can stay</Text>
+              <View style={styles.wrap}>{GENDERS.map(([v, l]) => <Chip key={v} label={l} active={draft.gender === v} onPress={() => setD('gender', v)} />)}</View>
+
+              <Text style={styles.filterLabel}>Room type</Text>
+              <View style={styles.wrap}>{OCCUPANCY.map(([v, l]) => <Chip key={v} label={l} active={draft.occupancy === v} onPress={() => setD('occupancy', v)} />)}</View>
+
+              <Text style={styles.filterLabel}>Amenities</Text>
+              <View style={styles.wrap}>
+                {AMENITIES.map((a) => (
+                  <Chip key={a.key} label={a.label} icon={a.icon} active={draft.amenities.includes(a.key)}
+                    onPress={() => setD('amenities', draft.amenities.includes(a.key) ? draft.amenities.filter((k) => k !== a.key) : [...draft.amenities, a.key])} />
+                ))}
+              </View>
+
+              {([['verified', 'Drisya Verified only', 'Inspected in person by our team'], ['instantBook', 'Instant Book', 'Confirmed without waiting for the owner'], ['featured', 'Featured', 'Handpicked by our team']] as const).map(([k, l, d]) => (
+                <View key={k} style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>{l}</Text>
+                    <Text style={styles.switchDesc}>{d}</Text>
+                  </View>
+                  <Switch value={draft[k]} onValueChange={(v) => setD(k, v)} trackColor={{ true: colors.brand[500], false: colors.ink[200] }} thumbColor={colors.white} accessibilityLabel={l} />
+                </View>
               ))}
-            </View>
-
-            {/* Gender */}
-            <Text style={styles.filterLabel}>Gender Preference</Text>
-            <View style={styles.chipRow}>
-              {GENDERS.map((g) => (
-                <TouchableOpacity key={g} style={[styles.chip, gender === g && styles.chipActive]} onPress={() => setGender(g)}>
-                  <Text style={[styles.chipText, gender === g && styles.chipTextActive]}>
-                    {g === 'all' ? 'All' : g === 'male' ? 'Male' : g === 'female' ? 'Female' : 'Co-ed'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Sort */}
-            <Text style={styles.filterLabel}>Sort by</Text>
-            <View style={styles.chipRow}>
-              {SORT_OPTIONS.map((s, i) => (
-                <TouchableOpacity key={s.value} style={[styles.chip, sortIdx === i && styles.chipActive]} onPress={() => setSortIdx(i)}>
-                  <Text style={[styles.chipText, sortIdx === i && styles.chipTextActive]}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
+            </ScrollView>
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.clearFilterBtn}
-                onPress={() => { setGender('all'); setBudgetIdx(0); setSortIdx(0); }}
-              >
-                <Text style={styles.clearFilterText}>Clear all</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.applyBtn} onPress={() => setFilterOpen(false)}>
-                <Text style={styles.applyText}>Apply</Text>
-              </TouchableOpacity>
+              <Button variant="outline" title="Clear all" onPress={() => setDraft(EMPTY)} style={{ flex: 1 }} />
+              <Button title="Show results" onPress={() => { setF(draft); setFilterOpen(false); }} style={{ flex: 2 }} />
             </View>
           </View>
         </View>
@@ -269,57 +250,32 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  searchRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
-  inputWrap: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.ink[50], borderRadius: radius.lg, paddingHorizontal: spacing.md,
-  },
-  searchIcon: { fontSize: 16, marginRight: spacing.sm },
-  input: { flex: 1, fontSize: 15, paddingVertical: 12, color: colors.ink[900] },
-  clearBtn: { fontSize: 16, color: colors.ink[400], padding: 4 },
-  filterBtn: {
-    width: 48, height: 48, borderRadius: radius.lg,
-    backgroundColor: colors.ink[50], justifyContent: 'center', alignItems: 'center',
-  },
-  filterIcon: { fontSize: 20 },
-  filterBadge: {
-    position: 'absolute', top: 4, right: 4,
-    backgroundColor: colors.coral[500], borderRadius: 8,
-    width: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-  },
-  filterBadgeText: { color: colors.white, fontSize: 10, fontWeight: '700' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.lg, gap: spacing.sm, marginTop: spacing.md },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full,
-    backgroundColor: colors.ink[50], borderWidth: 1, borderColor: colors.ink[100],
-  },
-  chipActive: { backgroundColor: colors.coral[500], borderColor: colors.coral[500] },
-  chipText: { fontSize: 13, fontWeight: '500', color: colors.ink[600] },
-  chipTextActive: { color: colors.white },
-  resultsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.sm },
-  resultsCount: { fontSize: 13, color: colors.ink[500], fontWeight: '500' },
-  sortLabel: { fontSize: 13, color: colors.coral[600], fontWeight: '600' },
-  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: spacing.lg, gap: spacing.md },
-  grid: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] },
+  container: { flex: 1, backgroundColor: colors.page },
+  top: { backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.ink[200], paddingTop: spacing.md },
+  searchRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm },
+  inputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: spacing.md },
+  input: { flex: 1, fontSize: 15, paddingVertical: 11, color: colors.ink[900] },
+  filterBtn: { width: 46, height: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.ink[200], justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white },
+  filterBtnActive: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
+  filterBadge: { position: 'absolute', top: -5, right: -5, backgroundColor: colors.brand[500], borderRadius: 9, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  filterBadgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
+  quickRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 4 },
+  resultsBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  resultsCount: { fontSize: 14, color: colors.ink[700], fontWeight: '700' },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sortLabel: { fontSize: 13, color: colors.brand[700], fontWeight: '700' },
+  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: spacing.lg },
+  grid: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },
   gridRow: { justifyContent: 'space-between' },
-  cardWrap: { width: (SCREEN.width - spacing.lg * 2 - spacing.md) / 2 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: spacing.lg },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.ink[700] },
-  emptySub: { fontSize: 14, color: colors.ink[400], textAlign: 'center', marginTop: spacing.sm },
-  emptyBtn: { marginTop: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: colors.coral[500], borderRadius: radius.lg },
-  emptyBtnText: { color: colors.white, fontWeight: '600', fontSize: 14 },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: colors.white, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], padding: spacing.xl, paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.ink[900] },
-  modalClose: { fontSize: 20, color: colors.ink[400], padding: 4 },
-  filterLabel: { fontSize: 14, fontWeight: '600', color: colors.ink[700], marginTop: spacing.lg, paddingHorizontal: spacing.lg },
-  modalActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing['2xl'] },
-  clearFilterBtn: { flex: 1, paddingVertical: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.ink[200], alignItems: 'center' },
-  clearFilterText: { fontSize: 14, fontWeight: '600', color: colors.ink[600] },
-  applyBtn: { flex: 2, paddingVertical: 14, borderRadius: radius.lg, backgroundColor: colors.coral[500], alignItems: 'center' },
-  applyText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+  modal: { backgroundColor: colors.white, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], padding: spacing.xl, paddingBottom: 32 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  modalTitle: { fontSize: 19, fontWeight: '800', color: colors.ink[900] },
+  filterLabel: { fontSize: 14, fontWeight: '700', color: colors.ink[900], marginTop: spacing.lg, marginBottom: spacing.sm },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  cityInput: { borderWidth: 1, borderColor: colors.ink[200], borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: colors.ink[900] },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink[200] },
+  switchLabel: { fontSize: 15, fontWeight: '600', color: colors.ink[900] },
+  switchDesc: { fontSize: 12, color: colors.ink[500], marginTop: 1 },
+  modalActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
 });

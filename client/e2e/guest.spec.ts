@@ -50,7 +50,7 @@ test('listing page: rules, price breakdown, reviews, contact hidden for guests',
   await expect(page.getByText('₹23,500')).toBeVisible(); // 8,500 + 15,000
   await expect(page.getByRole('button', { name: /Book instantly/ })).toBeVisible();
   await expect(page.getByText('Stayed here').first()).toBeVisible();
-  await expect(page.getByText(/phone number is shown after a confirmed visit/)).toBeVisible();
+  await expect(page.getByText(/Host phone numbers are never shared/)).toBeVisible();
   await expect(page.getByText('9876543212')).toHaveCount(0);
 
   // Guest actions lead to login
@@ -62,7 +62,9 @@ test('host profile is public but hides contact details', async ({ page }) => {
   await openListing(page, 'Sunshine Girls PG - Vijay Nagar');
   await page.getByRole('button', { name: /View Anjali Sharma's profile/ }).click();
   await expect(page.getByRole('heading', { name: 'Anjali Sharma' })).toBeVisible();
-  await expect(page.getByText('Identity verified by Drisya')).toBeVisible();
+  // Admin host check and identity verification are shown separately.
+  await expect(page.getByText('Host checked by the Drisya team')).toBeVisible();
+  await expect(page.getByText(/Identity verified through/)).toHaveCount(0);
   await expect(page.getByText('anjali@example.com')).toHaveCount(0);
 });
 

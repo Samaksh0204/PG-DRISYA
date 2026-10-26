@@ -13,17 +13,16 @@ async function canReviewProperty(userId, propertyId) {
   return !!(await Visit.exists({ tenantId: userId, propertyId, status: 'completed' }));
 }
 
-// Owner phone number is revealed only after a confirmed visit or accepted booking
-// (Airbnb reveals contact details after a booking is confirmed).
-async function canSeeOwnerContact(viewer, ownerId) {
+// Exact map position of a listing: only for tenants whose visit to THIS property is
+// confirmed, or whose booking here is accepted. Everyone else sees a ~1 km area.
+async function canSeeExactLocation(viewer, propertyId) {
   if (!viewer) return false;
   if (viewer.role === 'admin') return true;
-  if (viewer._id.toString() === ownerId.toString()) return true;
   const [visit, booking] = await Promise.all([
-    Visit.exists({ tenantId: viewer._id, ownerId, status: { $in: ['confirmed', 'completed'] } }),
-    Booking.exists({ tenantId: viewer._id, ownerId, status: { $in: ['accepted', 'completed'] } }),
+    Visit.exists({ tenantId: viewer._id, propertyId, status: { $in: ['confirmed', 'completed'] } }),
+    Booking.exists({ tenantId: viewer._id, propertyId, status: { $in: ['accepted', 'completed'] } }),
   ]);
   return !!(visit || booking);
 }
 
-module.exports = { hasStayed, canReviewProperty, canSeeOwnerContact };
+module.exports = { hasStayed, canReviewProperty, canSeeExactLocation };
