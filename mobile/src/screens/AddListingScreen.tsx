@@ -10,6 +10,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { createListing, updateListing, fetchListingDetail, uploadImages } from '../services/api';
 import { prepareForUpload } from '../utils/images';
+import { LocationPicker } from '../components/LocationPicker';
+import { coordProblem } from '../utils/geo';
 import { AMENITY_MAP } from '../data/amenities';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
@@ -49,6 +51,8 @@ export function AddListingScreen() {
   const [rooms, setRooms] = useState('1');
   const [instantBook, setInstantBook] = useState(false);
   const [landmark, setLandmark] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(isEdit);
@@ -74,6 +78,8 @@ export function AddListingScreen() {
             setRooms(String(p.roomsAvailable));
             setInstantBook(p.instantBook);
             setLandmark(p.distanceFromLandmark);
+            // The owner gets the exact position back from the server.
+            if (p.lat && p.lng) { setLat(String(p.lat)); setLng(String(p.lng)); }
           }
         } catch {} finally {
           setInitialLoading(false);
@@ -116,6 +122,11 @@ export function AddListingScreen() {
       Alert.alert('Error', 'Title, city, and a price greater than 0 are required');
       return;
     }
+    const locationProblem = coordProblem(lat, lng);
+    if (locationProblem) {
+      Alert.alert('Check the location', locationProblem);
+      return;
+    }
     if (photos.length === 0) {
       Alert.alert('Add photos', 'Add at least one real photo — listings without photos are not approved.');
       return;
@@ -137,6 +148,8 @@ export function AddListingScreen() {
         roomsAvailable: Math.max(0, Math.floor(Number(rooms) || 0)),
         instantBook,
         distanceFromLandmark: landmark.trim(),
+        lat: lat.trim() ? Number(lat) : 0,
+        lng: lng.trim() ? Number(lng) : 0,
       };
       if (isEdit) {
         await updateListing(editId!, data);
@@ -203,6 +216,9 @@ export function AddListingScreen() {
 
         <Text style={styles.label}>Nearby landmark</Text>
         <TextInput style={styles.input} value={landmark} onChangeText={setLandmark} placeholder="e.g. 1 km from DAVV" placeholderTextColor={colors.ink[400]} />
+
+        <Text style={styles.label}>Location on map</Text>
+        <LocationPicker lat={lat} lng={lng} onChange={(a, b) => { setLat(a); setLng(b); }} city={city} locality={locality} />
 
         <Text style={styles.label}>Rooms available now</Text>
         <TextInput style={styles.input} value={rooms} onChangeText={setRooms} keyboardType="numeric" placeholderTextColor={colors.ink[400]} />

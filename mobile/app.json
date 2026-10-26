@@ -22,6 +22,9 @@
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PG Drisya uses your location only when you choose to pin your PG on the map."
       }
     },
     "android": {
@@ -31,7 +34,10 @@
       },
       "package": "com.drisya.pg",
       "versionCode": 1,
-      "permissions": [],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
@@ -49,7 +55,15 @@
       "expo-status-bar",
       "expo-font",
       "expo-asset",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PG Drisya uses your location only when you choose to pin your PG on the map.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ]
     ]
   }
 }
