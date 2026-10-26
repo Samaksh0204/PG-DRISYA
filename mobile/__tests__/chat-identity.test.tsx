@@ -33,22 +33,23 @@ describe('chat', () => {
 
   test('a failed send keeps the message and retrying reuses its clientId', async () => {
     const sends: any[] = [];
+    let online = true; // simulate a real outage: every request fails while offline
     fetchMock = jest.spyOn(global, 'fetch').mockImplementation((url: any, init: any) => {
+      const isSend = String(url).endsWith('/messages') && init?.method === 'POST';
+      if (isSend) sends.push(JSON.parse(init.body));
+      if (!online) return Promise.reject(new TypeError('Network request failed'));
       if (String(url).includes('/messages/thread')) return json(200, thread);
-      if (String(url).endsWith('/messages') && init?.method === 'POST') {
-        const body = JSON.parse(init.body);
-        sends.push(body);
-        if (sends.length === 1) return Promise.reject(new TypeError('Network request failed'));
-        return json(201, { message: { _id: 'm1', text: body.text, createdAt: new Date().toISOString(), read: false } });
-      }
+      if (isSend) return json(201, { message: { _id: 'm1', text: sends[sends.length - 1].text, createdAt: new Date().toISOString(), read: false } });
       return json(200, {});
     });
     await render(<AuthProvider><ChatScreen /></AuthProvider>);
     await fireEvent.changeText(await screen.findByLabelText('Message'), 'Is a room free?');
+    online = false;
     await fireEvent.press(screen.getByLabelText('Send'));
     expect(await screen.findByText('Not sent · tap to retry')).toBeTruthy();
     expect(screen.getByText(/offline/)).toBeTruthy();
 
+    online = true;
     await fireEvent.press(screen.getByText('Is a room free?'));
     const retry = alertSpy.mock.calls.at(-1)[2].find((b: any) => b.text === 'Retry');
     await retry.onPress();

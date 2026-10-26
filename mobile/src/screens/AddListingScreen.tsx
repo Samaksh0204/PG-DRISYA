@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { createListing, updateListing, fetchListingDetail, uploadImages } from '../services/api';
+import { prepareForUpload } from '../utils/images';
 import { AMENITY_MAP } from '../data/amenities';
 import { colors } from '../theme/colors';
 import { spacing, radius } from '../theme/spacing';
@@ -89,11 +90,8 @@ export function AddListingScreen() {
     if (!result.canceled && result.assets.length > 0) {
       setUploading(true);
       try {
-        const files = result.assets.map((a) => ({
-          uri: a.uri,
-          name: a.fileName || `photo_${Date.now()}.jpg`,
-          type: a.mimeType || 'image/jpeg',
-        }));
+        // Shrink first: full-size phone photos exceed the server's 5 MB limit.
+        const files = await prepareForUpload(result.assets);
         const urls = await uploadImages(files);
         setPhotos((prev) => [...prev, ...urls]);
       } catch (err: any) {
