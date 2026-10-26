@@ -1,7 +1,8 @@
 // Forms opened from a listing or profile: forgot / reset password, confirm email,
 // book a visit, request to book, write a review, report.
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CategoryRatings, RootStackParamList } from '../types';
@@ -17,9 +18,9 @@ const SLOTS = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:0
 
 function Form({ children }: { children: React.ReactNode }) {
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.page }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={{ flex: 1, backgroundColor: colors.page }}>
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 

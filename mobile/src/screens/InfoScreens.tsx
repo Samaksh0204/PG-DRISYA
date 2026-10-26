@@ -1,7 +1,8 @@
 // In-app versions of the website's Trust & Safety, Pricing, Help and legal pages,
 // plus the "Drisya Expert" assisted-search request form.
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { InfoPage, RootStackParamList } from '../types';
@@ -210,7 +211,7 @@ export function ExpertScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={{ flex: 1 }}>
       <ScrollView style={s.page} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 56 }}>
         <View style={s.hero}>
           <Text style={s.heroTitle}>Drisya Expert</Text>
@@ -236,7 +237,7 @@ export function ExpertScreen() {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 

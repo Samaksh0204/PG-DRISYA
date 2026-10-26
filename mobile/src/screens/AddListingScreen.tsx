@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, Alert, Image, Platform,
 } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -157,7 +158,7 @@ export function AddListingScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardScreen style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>{isEdit ? 'Edit Listing' : 'Add New PG'}</Text>
 
@@ -249,7 +250,7 @@ export function AddListingScreen() {
           {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitBtnText}>{isEdit ? 'Save changes' : 'Submit for review'}</Text>}
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 

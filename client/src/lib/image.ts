@@ -25,3 +25,31 @@ export function imageSrcSet(url: string | undefined, width: number): string | un
   const two = optimizeImage(url, width * 2);
   return one && two && one !== url ? `${one} 1x, ${two} 2x` : undefined;
 }
+
+// Phone photos are often 4–8 MB; the server accepts up to 5 MB each. Shrink large
+// photos in the browser (longest edge 1600px, JPEG) before uploading. Small images,
+// and any browser that can't decode the file, keep the original.
+const MAX_EDGE = 1600;
+const KEEP_UNDER_BYTES = 1.5 * 1024 * 1024;
+
+export async function shrinkImage(file: File): Promise<File> {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= KEEP_UNDER_BYTES) {
+      bitmap.close?.();
+      return file;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+}

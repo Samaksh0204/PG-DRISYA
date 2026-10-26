@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, AppState, FlatList, Image, KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, Text, TextInput,
+  ActivityIndicator, Alert, AppState, FlatList, Image, RefreshControl, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
+import { KeyboardScreen } from '../components/KeyboardScreen';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ChatMessage, Conversation, RootStackParamList, ThreadPage } from '../types';
 import { ApiError, blockUser, fetchConversations, fetchThread, markRead, newClientId, sendMessage, unblockUser } from '../services/api';
@@ -114,7 +114,6 @@ export function ChatScreen() {
   const nav = useNavigation<Nav>();
   const { refreshCounts } = useAuth();
   const { params } = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
-  const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const [thread, setThread] = useState<Omit<ThreadPage, 'messages'> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -250,7 +249,7 @@ export function ChatScreen() {
   const data = [...messages].reverse();
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.page }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}>
+    <KeyboardScreen style={{ flex: 1, backgroundColor: colors.page }}>
       {offline && (
         <View style={s.offline} accessibilityRole="alert"><Icon name="cloud-offline-outline" size={16} color={colors.amber[700]} /><Text style={s.offlineText}>You're offline. Messages will sync when you reconnect.</Text></View>
       )}
@@ -317,7 +316,7 @@ export function ChatScreen() {
           {p.deleted ? 'This person has closed their account.' : thread.blockedByMe ? 'You blocked this person. Unblock to send messages.' : "You can't message this person."}
         </Text>
       )}
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }
 
