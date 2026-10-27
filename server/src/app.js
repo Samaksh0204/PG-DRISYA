@@ -42,19 +42,23 @@ function createApp() {
     })
   );
 
+  // Cross-origin checks apply to the API only. The website's own files must always
+  // load: browsers send an Origin header even for same-origin module scripts and
+  // stylesheets, and rejecting those left a blank page when CORS_ORIGINS was unset.
   const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
-  app.use(
-    cors({
-      origin(origin, callback) {
-        // No Origin header = mobile app / curl / same-origin. Allowed.
-        if (!origin || (!isProd && allowedOrigins.length === 0) || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
-      },
-      credentials: true,
-    })
-  );
+  if (process.env.APP_URL) {
+    try { allowedOrigins.push(new URL(process.env.APP_URL).origin); } catch { /* invalid APP_URL is reported at startup */ }
+  }
+  const corsMiddleware = cors((req, callback) => {
+    const origin = req.headers.origin;
+    // Same origin as this server (the site it serves itself), whatever its address.
+    const host = req.headers.host;
+    const sameOrigin = !!origin && !!host && (origin === `https://${host}` || origin === `http://${host}`);
+    const allowed = !origin || sameOrigin || (!isProd && allowedOrigins.length === 0) || allowedOrigins.includes(origin);
+    if (!allowed) return callback(new Error('Not allowed by CORS'));
+    callback(null, { origin: true, credentials: true });
+  });
+  app.use('/api', corsMiddleware);
 
   // Gzip responses: listing JSON and the website's files get roughly 70-80% smaller.
   app.use(compression());
