@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { __setWakeTiming } from '../lib/api';
+
+// Don't wait a real minute for a "sleeping server" in tests.
+__setWakeTiming({ totalMs: 40, intervalMs: 10 });
 
 afterEach(() => {
   cleanup();

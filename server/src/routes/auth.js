@@ -34,7 +34,7 @@ async function sendVerificationEmail(user) {
     { _id: user._id },
     { emailVerifyTokenHash: hash, emailVerifyExpires: new Date(Date.now() + VERIFY_TTL_MS) }
   );
-  await sendMail({
+  return sendMail({
     to: user.email,
     subject: 'Confirm your email for PG Drisya',
     text: `Hi ${user.fullName},\n\nPlease confirm your email address so owners and tenants know they can reach you.`,
@@ -232,8 +232,16 @@ router.post(
   emailLimiter,
   asyncHandler(async (req, res) => {
     if (req.user.emailVerified) return res.json({ message: 'Email already confirmed' });
-    await sendVerificationEmail(req.user);
-    res.json({ message: 'Verification email sent' });
+    const result = await sendVerificationEmail(req.user);
+    if (result.queued) return res.json({ message: `Confirmation email sent to ${req.user.email}. Check your inbox and spam folder.` });
+    if (result.printed) return res.json({ message: 'Email is not set up on this development server; the confirmation link was printed in the server console.' });
+    // Say so honestly instead of claiming the email went out.
+    throw new AppError(
+      result.reason === 'not_configured'
+        ? "We can't send emails right now (our email service isn't set up yet). Please try again later or contact support."
+        : "We couldn't send the email just now. Please try again in a few minutes.",
+      503
+    );
   })
 );
 
