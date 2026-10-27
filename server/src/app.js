@@ -39,6 +39,9 @@ function createApp() {
           }
         : undefined,
       crossOriginEmbedderPolicy: false,
+      // helmet's default "no-referrer" makes OpenStreetMap refuse map tiles ("Access
+      // blocked"); its tile policy requires a Referer. Send only our origin, never paths.
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     })
   );
 
