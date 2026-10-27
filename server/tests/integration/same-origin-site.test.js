@@ -42,6 +42,11 @@ describe('website served by the API server (single-service deploy)', () => {
     expect((await request(app).get('/assets/app.js').set('Origin', 'https://evil.example')).status).toBe(200);
   });
 
+  test('pages send a Referer to other sites, so OpenStreetMap serves map tiles', async () => {
+    const page = await request(app).get('/').set('Host', 'pg-drisya.onrender.com');
+    expect(page.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
+
   test('the API accepts its own site and APP_URL, and still refuses other origins', async () => {
     const own = await request(app).get('/api/health').set('Host', 'pg-drisya.onrender.com').set('Origin', 'https://pg-drisya.onrender.com');
     expect(own.status).not.toBe(403);
