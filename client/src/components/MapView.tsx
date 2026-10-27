@@ -7,8 +7,10 @@ import { formatINR } from '../lib/format';
 import { optimizeImage } from '../lib/image';
 
 // OpenStreetMap tiles: free, no API key. For heavy traffic, switch to a paid tile
-// provider (MapTiler, Stadia, Mapbox) — see the OSM tile usage policy.
-const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// provider (MapTiler, Stadia, Mapbox) — see the OSM tile usage policy. OSM blocks
+// tile requests without a Referer, so each tile sends our origin (never the page path).
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_REFERRER = 'strict-origin-when-cross-origin';
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const INDIA_CENTER: [number, number] = [22.9734, 78.6569];
 
@@ -46,7 +48,7 @@ export function ListingsMap({ listings, onSelect, className = 'h-[70vh]' }: { li
   return (
     <div className={`relative isolate z-0 overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700 ${className}`}>
       <MapContainer center={INDIA_CENTER} zoom={5} scrollWheelZoom className="h-full w-full">
-        <TileLayer url={TILE_URL} attribution={ATTRIBUTION} />
+        <TileLayer url={TILE_URL} attribution={ATTRIBUTION} referrerPolicy={TILE_REFERRER} />
         <FitBounds points={points} />
         {located.map((l) => (
           <Marker key={l.id} position={[l.lat, l.lng]} icon={priceIcon(l.price)}>
@@ -82,7 +84,7 @@ export function ListingLocationMap({ lat, lng, label }: { lat: number; lng: numb
   return (
     <div className="relative isolate z-0 h-72 overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700">
       <MapContainer center={[lat, lng]} zoom={14} scrollWheelZoom={false} className="h-full w-full">
-        <TileLayer url={TILE_URL} attribution={ATTRIBUTION} />
+        <TileLayer url={TILE_URL} attribution={ATTRIBUTION} referrerPolicy={TILE_REFERRER} />
         <Circle center={[lat, lng]} radius={400} pathOptions={{ color: 'rgb(20 184 166)', fillColor: 'rgb(20 184 166)', fillOpacity: 0.15 }} />
       </MapContainer>
     </div>
