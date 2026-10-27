@@ -16,7 +16,7 @@ Work through this in order. Items marked **⚠ you** need an account, a decision
 |---|---|---|
 | MongoDB Atlas | Database | M0 is fine to start |
 | Cloudinary | Listing and profile photos | Yes |
-| An SMTP email provider (Brevo, Amazon SES, SendGrid, Zoho, …) | Password reset, email confirmation, booking emails | Brevo: 300/day |
+| An email provider: Brevo API key (works everywhere), or any SMTP provider | Password reset, email confirmation, booking emails | Brevo: 300/day |
 | A host for the app (Render, Railway, Fly.io, a VPS…) | Runs the API and website | Varies |
 | A domain name | e.g. `pgdrisya.com` | — |
 
@@ -42,12 +42,15 @@ NODE_ENV=production
 MONGO_URI=...                 # new, rotated
 JWT_SECRET=...                # openssl rand -hex 32
 APP_URL=https://yourdomain.com
-SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASS=... MAIL_FROM="PG Drisya <no-reply@yourdomain.com>"
+BREVO_API_KEY=...             # or SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASS=...
+MAIL_FROM="PG Drisya <you@yourdomain.com>"   # must be a sender verified in Brevo
 CLOUDINARY_CLOUD_NAME=... CLOUDINARY_API_KEY=... CLOUDINARY_API_SECRET=...
 CLIENT_DIST=../client/dist    # (already set inside the Docker image)
 ```
 
 The server refuses to start in production if `JWT_SECRET` is short or `APP_URL` is missing, and it warns at startup if email or uploads aren't configured.
+
+**Email on Render's free plan:** Render blocks outgoing SMTP (ports 25, 465, 587) on free instances, so SMTP, Gmail included, fails with "Connection timeout". Use Brevo's HTTPS API instead: create a free Brevo account, verify your sender email under *Senders, Domains & Dedicated IPs*, create an API key under *SMTP & API → API Keys*, and set `BREVO_API_KEY` and `MAIL_FROM`. The startup log shows `[mail] Brevo API ready` when it works.
 
 The website's `VITE_*` settings (contact details, Grievance Officer, social links) are baked in at build time. Set them in `client/.env` before `npm run build`, or as build-time variables on your host.
 
