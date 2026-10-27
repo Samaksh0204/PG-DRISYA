@@ -28,6 +28,21 @@ describe('mobile api client', () => {
     await expect(request('/visits', { method: 'POST', body: '{}' })).rejects.toMatchObject({ message: 'Slot taken', status: 409 });
   });
 
+  test('a server answering 503 while it starts is woken up and the request retried once', async () => {
+    const { onServerWaking } = require('../src/services/api');
+    const states: boolean[] = [];
+    const off = onServerWaking((w: boolean) => states.push(w));
+    let calls = 0;
+    fetchMock.mockImplementation((url: string) => {
+      calls += 1;
+      if (String(url).endsWith('/health')) return json(200, { status: 'ok' });
+      return calls === 1 ? json(503, {}) : json(200, { ok: 1 });
+    });
+    await expect(request('/x')).resolves.toEqual({ ok: 1 });
+    expect(states).toEqual([true, false]);
+    off();
+  });
+
   test('network failure → friendly message', async () => {
     fetchMock.mockImplementation(() => Promise.reject(new TypeError('Network request failed')));
     await expect(request('/x')).rejects.toThrow(/Could not reach the server/);

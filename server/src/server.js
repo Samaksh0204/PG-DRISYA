@@ -18,12 +18,14 @@ if (errors.length) {
 
 const connectDB = require('./config/db');
 const { createApp } = require('./app');
+const { verifyMailer } = require('./utils/mailer');
 
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
   const server = createApp().listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+    verifyMailer();
   });
 
   // Graceful shutdown so in-flight requests finish during deploys/restarts.

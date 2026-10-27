@@ -35,8 +35,8 @@
       "package": "com.drisya.pg",
       "versionCode": 1,
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -70,6 +70,12 @@
           "color": "#14B8A6"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "32ccd8e2-2503-44d5-9e4a-a7ca5c52a014"
+      }
+    },
+    "owner": "samaksh02"
   }
 }

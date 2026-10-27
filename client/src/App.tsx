@@ -3,7 +3,7 @@ import { Compass } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { ErrorBoundary, PageLoader, Toaster } from './components/ui';
+import { ErrorBoundary, PageLoader, ServerWakingBanner, Toaster } from './components/ui';
 import { HomePage } from './pages/HomePage';
 // Pages other than the homepage load on demand, so the first visit downloads less.
 const page = <T extends Record<string, unknown>>(load: () => Promise<T>, name: keyof T) =>
@@ -119,6 +119,7 @@ function Shell() {
       </main>
       {path !== '/messages' && <Footer />}
       <Toaster />
+      <ServerWakingBanner />
     </div>
   );
 }

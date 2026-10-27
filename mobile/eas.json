@@ -9,11 +9,11 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.yourdomain.com/api", "EXPO_PUBLIC_WEB_URL": "https://yourdomain.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://pg-drisya.onrender.com/api", "EXPO_PUBLIC_WEB_URL": "https://pg-drisya.onrender.com" }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.yourdomain.com/api", "EXPO_PUBLIC_WEB_URL": "https://yourdomain.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://pg-drisya.onrender.com/api", "EXPO_PUBLIC_WEB_URL": "https://pg-drisya.onrender.com" }
     }
   },
   "submit": {

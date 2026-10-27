@@ -30,6 +30,23 @@ describe('api client', () => {
     await expect(request('/x')).rejects.toMatchObject({ message: 'Already booked', status: 409 });
   });
 
+  test('a sleeping server is woken up and the request retried once', async () => {
+    const { onServerWaking } = await import('../lib/api');
+    const states: boolean[] = [];
+    const off = onServerWaking((w) => states.push(w));
+    let calls = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      calls += 1;
+      if (url.endsWith('/health')) return new Response('{}', { status: 200 });
+      if (calls === 1) return new Response('<html>starting</html>', { status: 503 });
+      return new Response(JSON.stringify({ ok: 1 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    await expect(request('/x')).resolves.toEqual({ ok: 1 });
+    expect(states).toEqual([true, false]);
+    off();
+  });
+
   test('network failure gives a friendly message', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
     const err = (await request('/x').catch((e) => e)) as ApiError;
