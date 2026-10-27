@@ -1,5 +1,7 @@
-// Email sending. Uses SMTP when SMTP_HOST is configured (any provider: Gmail
-// app password, Brevo, SendGrid SMTP, Amazon SES SMTP, Zoho...).
+// Email sending, in this order of preference:
+// - BREVO_API_KEY: Brevo's HTTPS API. Works on hosts that block outgoing SMTP
+//   (Render's free plan blocks ports 25/465/587, so SMTP just times out there).
+// - SMTP_HOST: any SMTP provider (Gmail app password, Brevo, SendGrid, SES, Zoho...).
 // - In tests, messages are captured in `outbox` instead of being sent.
 // - Without SMTP in development, emails are printed to the console so links still work.
 const nodemailer = require('nodemailer');
@@ -17,6 +19,43 @@ function getTransporter() {
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
   });
   return transporter;
+}
+
+const BREVO_URL = 'https://api.brevo.com/v3';
+
+// "PG Drisya <hello@x.com>" → { name: 'PG Drisya', email: 'hello@x.com' }
+function parseAddress(from) {
+  const m = /^\s*(?:"?([^"<]*?)"?\s*)?<([^>]+)>\s*$/.exec(from);
+  return m ? { name: m[1] || undefined, email: m[2].trim() } : { email: from.trim() };
+}
+
+async function brevoRequest(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${BREVO_URL}${path}`, {
+    method,
+    headers: { 'api-key': process.env.BREVO_API_KEY, accept: 'application/json', 'content-type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(`Brevo ${res.status}: ${detail.message || res.statusText}`);
+  }
+  return res;
+}
+
+function sendViaBrevo(msg) {
+  return brevoRequest('/smtp/email', {
+    method: 'POST',
+    body: { sender: parseAddress(msg.from), to: [{ email: msg.to }], subject: msg.subject, textContent: msg.text, htmlContent: msg.html },
+  });
+}
+
+// A timeout means the mail server couldn't be reached at all, which is not a password problem.
+function explainSmtpError(err) {
+  if (/timeout|ETIMEDOUT|ECONNREFUSED|ENETUNREACH/i.test(`${err.code} ${err.message}`)) {
+    return `could not connect to ${process.env.SMTP_HOST} (${err.message}). This host may block outgoing SMTP (Render's free plan does); set BREVO_API_KEY to send over HTTPS instead.`;
+  }
+  return `${err.message}. Check SMTP_USER / SMTP_PASS (Gmail needs an app password).`;
 }
 
 const escapeHtml = (s) =>
@@ -39,6 +78,15 @@ async function sendMail({ to, subject, text, actionUrl, actionLabel }) {
     outbox.push({ ...msg, actionUrl });
     return { queued: true };
   }
+  if (process.env.BREVO_API_KEY) {
+    try {
+      await sendViaBrevo(msg);
+      return { queued: true };
+    } catch (err) {
+      console.error('[mail] send failed:', err.message);
+      return { queued: false, reason: 'send_failed' };
+    }
+  }
   const t = getTransporter();
   if (!t) {
     if (process.env.NODE_ENV !== 'production') {
@@ -52,17 +100,27 @@ async function sendMail({ to, subject, text, actionUrl, actionLabel }) {
     await t.sendMail(msg);
     return { queued: true };
   } catch (err) {
-    console.error('[mail] send failed:', err.message);
+    console.error('[mail] send failed:', explainSmtpError(err));
     return { queued: false, reason: 'send_failed' };
   }
 }
 
-// Checks the SMTP login once at startup so a wrong password (e.g. a normal Gmail
+// Checks the mail setup once at startup so a wrong key or password (e.g. a normal Gmail
 // password instead of an app password) shows up in the logs right away.
 async function verifyMailer() {
+  if (process.env.BREVO_API_KEY) {
+    try {
+      await brevoRequest('/account');
+      console.log(`[mail] Brevo API ready (sending as ${parseAddress(process.env.MAIL_FROM || '').email || 'MAIL_FROM not set!'})`);
+      return true;
+    } catch (err) {
+      console.error(`[mail] Brevo API check failed: ${err.message}. Check BREVO_API_KEY.`);
+      return false;
+    }
+  }
   const t = getTransporter();
   if (!t) {
-    console.warn('[mail] SMTP_HOST is not set: confirmation and password-reset emails will NOT be sent.');
+    console.warn('[mail] Neither BREVO_API_KEY nor SMTP_HOST is set: confirmation and password-reset emails will NOT be sent.');
     return false;
   }
   try {
@@ -70,9 +128,9 @@ async function verifyMailer() {
     console.log(`[mail] SMTP ready (${process.env.SMTP_HOST})`);
     return true;
   } catch (err) {
-    console.error(`[mail] SMTP login failed (${process.env.SMTP_HOST}): ${err.message}. Check SMTP_USER / SMTP_PASS (Gmail needs an app password).`);
+    console.error(`[mail] SMTP check failed: ${explainSmtpError(err)}`);
     return false;
   }
 }
 
-module.exports = { sendMail, verifyMailer, outbox };
+module.exports = { sendMail, verifyMailer, outbox, parseAddress };
