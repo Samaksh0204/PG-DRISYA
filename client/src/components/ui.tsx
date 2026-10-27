@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Info, Loader2, LogIn, Star, X, type LucideIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { optimizeImage, imageSrcSet } from '../lib/image';
+import { onServerWaking } from '../lib/api';
 
 export function Spinner({ className = 'h-5 w-5' }: { className?: string }) {
   return <Loader2 className={`animate-spin ${className}`} aria-label="Loading" />;
@@ -282,4 +283,17 @@ export function Avatar({ src, name, className = 'h-10 w-10 rounded-full object-c
     return <span className={`inline-flex shrink-0 items-center justify-center bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 ${className}`} aria-label={name}>{initials}</span>;
   }
   return <img src={optimizeImage(src, 160)} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} className={`shrink-0 ${className}`} />;
+}
+
+// Shown while the API is starting up after being idle (free hosting sleeps).
+export function ServerWakingBanner() {
+  const [waking, setWaking] = useState(false);
+  useEffect(() => onServerWaking(setWaking), []);
+  if (!waking) return null;
+  return createPortal(
+    <div role="status" aria-live="polite" className="z-toast fixed inset-x-0 top-0 flex items-center justify-center gap-2 bg-ink-900 px-4 py-2 text-sm font-medium text-white shadow-card-hover">
+      <Loader2 className="h-4 w-4 animate-spin" /> Waking up the server — this can take up to a minute…
+    </div>,
+    document.body,
+  );
 }
