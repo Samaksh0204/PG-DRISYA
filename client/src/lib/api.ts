@@ -33,7 +33,47 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
-export async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
+// ── Waking the server ─────────────────────────────────────────────────
+// Free hosting puts the API to sleep when idle; the first request then fails or gets a
+// 502/503/504 while it starts (up to ~1 minute). Instead of failing, wait for
+// /api/health to answer, telling the UI so it can say "Waking up the server…", then
+// retry the request once. (Messages, visits, bookings and sign-ups are de-duplicated
+// on the server, so the single retry can't create doubles.)
+const WAKE_STATUSES = new Set([502, 503, 504]);
+let wakeTiming = { totalMs: 75000, intervalMs: 3000 };
+const wakeListeners = new Set<(waking: boolean) => void>();
+let waking: Promise<boolean> | null = null;
+
+export function onServerWaking(fn: (waking: boolean) => void) {
+  wakeListeners.add(fn);
+  return () => { wakeListeners.delete(fn); };
+}
+// Tests only.
+export function __setWakeTiming(t: { totalMs: number; intervalMs: number }) { wakeTiming = t; }
+
+function waitForServer(): Promise<boolean> {
+  if (!waking) {
+    waking = (async () => {
+      wakeListeners.forEach((f) => f(true));
+      const deadline = Date.now() + wakeTiming.totalMs;
+      try {
+        while (Date.now() < deadline) {
+          try {
+            if ((await fetch(`${BASE}/health`, { cache: 'no-store' })).ok) return true;
+          } catch { /* still asleep or offline */ }
+          await new Promise((r) => setTimeout(r, wakeTiming.intervalMs));
+        }
+        return false;
+      } finally {
+        wakeListeners.forEach((f) => f(false));
+        waking = null;
+      }
+    })();
+  }
+  return waking;
+}
+
+export async function request<T>(path: string, opts: RequestInit = {}, retried = false): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
@@ -46,8 +86,10 @@ export async function request<T>(path: string, opts: RequestInit = {}): Promise<
   try {
     res = await fetch(`${BASE}${path}`, { ...opts, headers });
   } catch {
+    if (!retried && (await waitForServer())) return request<T>(path, opts, true);
     throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
   }
+  if (WAKE_STATUSES.has(res.status) && !retried && (await waitForServer())) return request<T>(path, opts, true);
   let json: any = {};
   try { json = await res.json(); } catch { /* non-JSON body */ }
   if (!res.ok) {

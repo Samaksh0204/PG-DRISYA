@@ -69,7 +69,53 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, opts: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
+// ── Waking the server ─────────────────────────────────────────────────
+// Free hosting puts the API to sleep when idle. A sleeping server holds the connection
+// (so the request times out) or answers 502/503/504 while it starts. In those cases wait
+// for /api/health to answer — the UI shows "Waking up the server…" — then retry once.
+// An instant network failure means the phone is offline, so that still fails fast.
+const WAKE_STATUSES = new Set([502, 503, 504]);
+// Tests don't wait a real minute.
+let wakeTiming = process.env.NODE_ENV === 'test'
+  ? { totalMs: 40, intervalMs: 10, probeTimeoutMs: 20 }
+  : { totalMs: 75000, intervalMs: 3000, probeTimeoutMs: 20000 };
+const wakeListeners = new Set<(waking: boolean) => void>();
+let waking: Promise<boolean> | null = null;
+
+export function onServerWaking(fn: (waking: boolean) => void) {
+  wakeListeners.add(fn);
+  return () => { wakeListeners.delete(fn); };
+}
+// Tests only.
+export function __setWakeTiming(t: Partial<typeof wakeTiming>) { wakeTiming = { ...wakeTiming, ...t }; }
+
+function waitForServer(): Promise<boolean> {
+  if (!waking) {
+    waking = (async () => {
+      wakeListeners.forEach((f) => f(true));
+      const deadline = Date.now() + wakeTiming.totalMs;
+      try {
+        while (Date.now() < deadline) {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), wakeTiming.probeTimeoutMs);
+          try {
+            if ((await fetch(`${BASE}/health`, { signal: ctrl.signal })).ok) return true;
+          } catch { /* still starting */ } finally {
+            clearTimeout(t);
+          }
+          await new Promise((r) => setTimeout(r, wakeTiming.intervalMs));
+        }
+        return false;
+      } finally {
+        wakeListeners.forEach((f) => f(false));
+        waking = null;
+      }
+    })();
+  }
+  return waking;
+}
+
+export async function request<T>(path: string, opts: RequestInit & { timeoutMs?: number } = {}, retried = false): Promise<T> {
   const token = await getToken();
   const isForm = typeof FormData !== 'undefined' && opts.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -85,11 +131,16 @@ export async function request<T>(path: string, opts: RequestInit & { timeoutMs?:
   try {
     res = await fetch(`${BASE}${path}`, { ...opts, headers, signal: controller.signal });
   } catch (err: any) {
-    if (err?.name === 'AbortError') throw new ApiError('Request timed out. Check your connection and try again.', 0);
+    clearTimeout(timeout);
+    if (err?.name === 'AbortError') {
+      if (!retried && (await waitForServer())) return request<T>(path, opts, true);
+      throw new ApiError('Request timed out. Check your connection and try again.', 0);
+    }
     throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
   } finally {
     clearTimeout(timeout);
   }
+  if (WAKE_STATUSES.has(res.status) && !retried && (await waitForServer())) return request<T>(path, opts, true);
   let json: any = {};
   try { json = await res.json(); } catch { /* empty body */ }
   if (!res.ok) {

@@ -36,15 +36,16 @@ function setup(onSend: (body: any, attempt: number) => [number, unknown]) {
 
 describe('MessagesPage', () => {
   test('a failed send can be retried and reuses the same clientId', async () => {
-    const sends = setup((body, n) => (n === 1 ? [0, null] : [201, { message: { _id: 'm1', text: body.text, createdAt: new Date().toISOString(), read: false } }]));
+    // The first try and the automatic wake-up retry both fail; the user's Retry succeeds.
+    const sends = setup((body, n) => (n <= 2 ? [0, null] : [201, { message: { _id: 'm1', text: body.text, createdAt: new Date().toISOString(), read: false } }]));
     const box = await screen.findByLabelText('Message');
     await userEvent.type(box, 'Is a room free?{Enter}');
     expect(await screen.findByText('Not sent')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Retry'));
     await waitFor(() => expect(screen.queryByText('Not sent')).toBeNull());
-    expect(sends).toHaveLength(2);
+    expect(sends).toHaveLength(3);
     expect(sends[0].clientId).toBeTruthy();
-    expect(sends[1].clientId).toBe(sends[0].clientId);
+    expect(new Set(sends.map((x) => x.clientId)).size).toBe(1); // every attempt is the same message
     expect(sends[0]).toMatchObject({ receiverId: 'u2', propertyId: 'p1', text: 'Is a room free?' });
   });
 

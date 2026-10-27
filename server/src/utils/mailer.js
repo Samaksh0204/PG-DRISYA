@@ -22,7 +22,9 @@ function getTransporter() {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// Best-effort: never throws, so a mail outage can't break a request.
+// Best-effort: never throws, so a mail outage can't break a request. Returns
+// { queued: true } or { queued: false, reason: 'not_configured' | 'send_failed' } so
+// callers can tell people the truth instead of "email sent".
 async function sendMail({ to, subject, text, actionUrl, actionLabel }) {
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
     <h2 style="color:#102A43">PG Drisya</h2>
@@ -41,18 +43,36 @@ async function sendMail({ to, subject, text, actionUrl, actionLabel }) {
   if (!t) {
     if (process.env.NODE_ENV !== 'production') {
       console.log(`\n[mail:dev] To: ${to}\nSubject: ${subject}\n${fullText}\n`);
-    } else {
-      console.warn(`[mail] SMTP not configured; dropped email "${subject}" to ${to}`);
+      return { queued: false, reason: 'not_configured', printed: true };
     }
-    return { queued: false };
+    console.warn(`[mail] SMTP not configured; dropped email "${subject}" to ${to}`);
+    return { queued: false, reason: 'not_configured' };
   }
   try {
     await t.sendMail(msg);
     return { queued: true };
   } catch (err) {
     console.error('[mail] send failed:', err.message);
-    return { queued: false };
+    return { queued: false, reason: 'send_failed' };
   }
 }
 
-module.exports = { sendMail, outbox };
+// Checks the SMTP login once at startup so a wrong password (e.g. a normal Gmail
+// password instead of an app password) shows up in the logs right away.
+async function verifyMailer() {
+  const t = getTransporter();
+  if (!t) {
+    console.warn('[mail] SMTP_HOST is not set: confirmation and password-reset emails will NOT be sent.');
+    return false;
+  }
+  try {
+    await t.verify();
+    console.log(`[mail] SMTP ready (${process.env.SMTP_HOST})`);
+    return true;
+  } catch (err) {
+    console.error(`[mail] SMTP login failed (${process.env.SMTP_HOST}): ${err.message}. Check SMTP_USER / SMTP_PASS (Gmail needs an app password).`);
+    return false;
+  }
+}
+
+module.exports = { sendMail, verifyMailer, outbox };
